@@ -7,12 +7,21 @@
 - [ffprobe](https://ffbinaries.com/downloads)
 
 # Usage
+```ps
+PS > .\8mb.ps1 -Source [Path]
+               -Size [UInt32]
+               -SizeUnits (optional) [KB|MB (default)]
+               -FPS (optional) [UInt32]
+               -Destination (optional) [Path]
 ```
+
+# Example
+```ps
 PS > .\8mb.ps1 .\a.mp4 8 MB
 8mb PowerShell
 
 Source Path ------ : .\a.mp4
-Destination Path - : a.compressed.mp4
+Destination Path - : a.8mb.mp4
 Source Size ------ : 205,834 KB (210,774,113 bytes)
 Destination Size - : 8,192 KB (8,388,608 bytes)
 
