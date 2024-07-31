@@ -213,6 +213,12 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     $bitrate = [math]::Round($bitrate * $factor)
     $bitrateF = "$(($bitrate / 1024).ToString("N0")) Kbps"
 
+    if ($bitrate -le 1024)
+    {
+        echo "Attempt ${attempt}: attempted to encode at $bitrate bps, aborting..."
+        break
+    }
+
     echo "Attempt ${attempt}: transcoding source file at $bitrateF using $([Environment]::ProcessorCount) CPU cores..."
 
     Transcode $bitrate
