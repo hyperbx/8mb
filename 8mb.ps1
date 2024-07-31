@@ -57,11 +57,11 @@ function GetDestinationSize()
 
     if ($units -eq "kb")
     {
-        return $Size * 1024
+        return $Size * 1000
     }
     elseif ($units -eq "mb")
     {
-        return $Size * 1024 * 1024
+        return $Size * 1000 * 1000
     }
 
     echo "Invalid destination size: $Size $SizeUnits"
@@ -230,8 +230,8 @@ if ($duration -le 0)
 
 echo "Source Path ------ : $Source"
 echo "Destination Path - : $Destination"
-echo "Source Size ------ : $(($sourceSizeBytes / 1024).ToString("N0")) KB ($($sourceSizeBytes.ToString("N0")) bytes)"
-echo "Destination Size - : $(($destSizeBytes / 1024).ToString("N0")) KB ($($destSizeBytes.ToString("N0")) bytes)"
+echo "Source Size ------ : $(($sourceSizeBytes / 1000).ToString("N0")) KB ($($sourceSizeBytes.ToString("N0")) bytes)"
+echo "Destination Size - : $(($destSizeBytes / 1000).ToString("N0")) KB ($($destSizeBytes.ToString("N0")) bytes)"
 
 if ($FPS -ne $sourceFPS)
 {
@@ -260,7 +260,7 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
 
     # Multiply bitrate by factor to increase/decrease file size on future attempts.
     $destBitrate  = [math]::Round($destBitrate * $factor)
-    $destBitrateF = "$(($destBitrate / 1024).ToString("N0")) Kbps"
+    $destBitrateF = "$(($destBitrate / 1000).ToString("N0")) Kbps"
 
     $attemptPrefix      = "Attempt ${attempt}:"
     $attemptPrefixBlank = ' ' * $attemptPrefix.Length
@@ -279,7 +279,7 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     # Break if attempted to transcode to the same file size.
     if ($newSizeB -eq (Get-Item $Destination).Length)
     {
-        echo "$attemptPrefix Cannot compress any smaller than $(($newSizeB / 1024).ToString("N0")) KB."
+        echo "$attemptPrefix Cannot compress any smaller than $(($newSizeB / 1000).ToString("N0")) KB."
         break
     }
 
@@ -287,7 +287,7 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     $percent  = (100 / $destSizeBytes) * $newSizeB
     $factor   = (100 / $percent)
     
-    echo "$attemptPrefixBlank Compressed to $(($newSizeB / 1024).ToString("N0")) KB."
+    echo "$attemptPrefixBlank Compressed to $(($newSizeB / 1000).ToString("N0")) KB."
 }
 
 $attemptPlural = "attempts"
