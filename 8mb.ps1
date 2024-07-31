@@ -171,9 +171,9 @@ function PromptDestinationFPS()
 # Prompt the user to fill out the destination size and frame rate.
 if ($Prompt)
 {
-    $Size = PromptDestinationSize
+    $Size      = PromptDestinationSize
     $SizeUnits = PromptDestinationSizeUnits
-    $FPS = PromptDestinationFPS
+    $FPS       = PromptDestinationFPS
 
     echo ""
 }
@@ -245,8 +245,8 @@ echo ""
 echo "Starting transcode at ${startTime}. Enter CTRL+C to cancel."
 echo ""
 
-$factor = 0
 $attempt = 0
+$factor = 0
 
 while ($factor -gt $toleranceThreshold -or $factor -lt 1)
 {
@@ -284,8 +284,8 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     }
 
     $newSizeB = (Get-Item $Destination).Length
-    $percent = (100 / $destSizeBytes) * $newSizeB
-    $factor = 100 / $percent
+    $percent  = (100 / $destSizeBytes) * $newSizeB
+    $factor   = (100 / $percent)
     
     echo "$attemptPrefixBlank Compressed to $(($newSizeB / 1024).ToString("N0")) KB."
 }
