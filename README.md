@@ -7,8 +7,10 @@
 - [ffprobe](https://ffbinaries.com/downloads)
 
 # Usage
+Download the Windows binaries for both ffmpeg and ffprobe from the [Prerequisites](#prerequisites) section and extract them into the script directory.
+
 ## Shell Extension
-Run `Register.bat` from the permanent location of `8mb.ps1` to extend the context menu of `*.mp4` files with the script.
+Run `Register.bat` to extend the context menu of `*.mp4` files with the script.
 
 <p align="center">
     <img src="https://github.com/user-attachments/assets/b7239e80-2ecf-4d5c-a3f0-11ceadc4c716"/>
