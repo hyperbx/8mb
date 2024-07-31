@@ -33,6 +33,6 @@ reg add "%shellKey%\d_100MB" /ve /d "100 MB" /f
 reg add "%shellKey%\d_100MB\command" /ve /d "powershell \"%scriptPath%\" \"%%1\" 100 MB" /f
 
 reg add "%shellKey%\e_Custom" /ve /d "Custom" /f
-reg add "%shellKey%\e_Custom\command" /ve /d "powershell \"%scriptPath%\" \"%%1\" -PromptSize" /f
+reg add "%shellKey%\e_Custom\command" /ve /d "powershell \"%scriptPath%\" \"%%1\" -Prompt" /f
 
 ENDLOCAL

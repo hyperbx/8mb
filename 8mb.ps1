@@ -5,7 +5,7 @@ param
     [String]$SizeUnits = "MB",
     [UInt32]$FPS = 0,
     [String]$Destination = "",
-    [Switch]$PromptSize
+    [Switch]$Prompt
 )
 
 $work = $PSScriptRoot
@@ -15,34 +15,24 @@ $ffprobe = "${work}\ffprobe.exe"
 echo "8mb PowerShell"
 echo ""
 
-function PromptSize()
+function OnExit()
 {
-    $result = Read-Host -Prompt "Enter destination size (MB)"
-
-    if ([string]::IsNullOrEmpty($result))
+    if (!$Prompt)
     {
-        return PromptSize
+        return
     }
-
-    if ([int]::TryParse($result, [ref]$null))
-    {
-        return [UInt32]$result
-    }
-
-    return PromptSize
-}
-
-if ($PromptSize)
-{
-    $Size = PromptSize
 
     echo ""
+    echo "Press any key to continue..."
+
+    [void][System.Console]::ReadKey($true)
 }
 
 if (!(Test-Path $ffmpeg))
 {
     echo "ffmpeg not found!"
     echo "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory."
+    OnExit
     exit -1
 }
 
@@ -50,24 +40,15 @@ if (!(Test-Path $ffprobe))
 {
     echo "ffprobe not found!"
     echo "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory."
+    OnExit
     exit -1
 }
 
 if (!(Test-Path $Source))
 {
     echo "File not found: $Source"
+    OnExit
     exit -1
-}
-
-if ($Size -le 0)
-{
-    echo "Invalid destination size: $Size $SizeUnits"
-    exit -1
-}
-
-if ([string]::IsNullOrEmpty($Destination))
-{
-    $Destination = "$([System.IO.Path]::GetFileNameWithoutExtension($Source)).${Size}$($SizeUnits.ToLower()).mp4"
 }
 
 function GetSizeKilobytes()
@@ -85,6 +66,7 @@ function GetSizeKilobytes()
     else
     {
         echo "Invalid destination size: $Size $SizeUnits"
+        OnExit
         exit -1
     }
 }
@@ -112,9 +94,64 @@ function Transcode([Int32]$bitrate)
     & $ffmpeg -y -hide_banner -loglevel error -i $Source -filter:v fps=$FPS -b $bitrate -cpu-used [Environment]::ProcessorCount -c:a copy $Destination
 }
 
+function PromptSize()
+{
+    $result = Read-Host -Prompt "Enter destination size (MB)"
+
+    if ([string]::IsNullOrEmpty($result))
+    {
+        return PromptSize
+    }
+
+    if ([int]::TryParse($result, [ref]$null))
+    {
+        return [UInt32]$result
+    }
+
+    return PromptSize
+}
+
+function PromptFPS()
+{
+    $sourceFPS = GetFrameRate
+    $result = Read-Host -Prompt "Enter destination FPS (default: ${sourceFPS})"
+
+    if ([string]::IsNullOrEmpty($result))
+    {
+        return $sourceFPS
+    }
+
+    if ([int]::TryParse($result, [ref]$null))
+    {
+        return [UInt32]$result
+    }
+
+    return PromptFPS
+}
+
+if ($Prompt)
+{
+    $Size = PromptSize
+    $FPS = PromptFPS
+
+    echo ""
+}
+
+if ($Size -le 0)
+{
+    echo "Invalid destination size: $Size $SizeUnits"
+    OnExit
+    exit -1
+}
+
 if ($FPS -le 0)
 {
     $FPS = GetFrameRate
+}
+
+if ([string]::IsNullOrEmpty($Destination))
+{
+    $Destination = "$([System.IO.Path]::GetFileNameWithoutExtension($Source)).${Size}$($SizeUnits.ToLower()).mp4"
 }
 
 $tolerance = 10
@@ -128,9 +165,17 @@ $duration = GetDuration
 $bitrateAbs = $destSizeB / $duration
 $bitrate = [math]::Round($bitrateAbs + ($bitrateAbs * ($FPS / $sourceFPS)))
 
+if ($destSizeB -gt $sourceSizeB)
+{
+    echo "The destination size cannot be larger than the source file size."
+    OnExit
+    exit -1
+}
+
 if ($duration -le 0)
 {
     echo "Invalid video duration: $duration"
+    OnExit
     exit -1
 }
 
@@ -145,15 +190,14 @@ if ($FPS -ne $sourceFPS)
     echo "Destination FPS -- : $FPS FPS"
 }
 
+$startTime = Get-Date
+
+echo ""
+echo "Starting transcode at ${startTime}. Enter CTRL+C to cancel."
 echo ""
 
 $factor = 0
 $attempt = 0
-
-$startTime = Get-Date
-
-echo "Starting transcode at ${startTime}."
-echo ""
 
 while ($factor -gt $toleranceThreshold -or $factor -lt 1)
 {
@@ -182,3 +226,4 @@ $endTime = Get-Date
 
 echo ""
 echo "Finished at $endTime in $(($endTime - $startTime).TotalSeconds) seconds with $attempt attempt(s)."
+OnExit
