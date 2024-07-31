@@ -272,5 +272,6 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
 $endTime = Get-Date
 
 echo ""
-echo "Finished at $endTime in $(($endTime - $startTime).TotalSeconds) seconds with $attempt attempt(s)."
+echo "Finished at $endTime in $(($endTime - $startTime).TotalSeconds) seconds after $attempt attempt(s)."
+
 Leave

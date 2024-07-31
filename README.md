@@ -42,5 +42,5 @@ Starting transcode at 07/31/2024 21:04:37. Enter CTRL+C to cancel.
 Attempt 1: transcoding source file at 899 Kbps using 12 CPU cores...
 Attempt 1: compressed 205,834 KB down to 8,083 KB at 899 Kbps.
 
-Finished at 07/31/2024 21:05:15 in 37.909302 seconds with 1 attempt(s).
+Finished at 07/31/2024 21:05:15 in 37.909302 seconds after 1 attempt(s).
 ```
