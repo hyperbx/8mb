@@ -3,21 +3,23 @@ param
     [String]$Source,
     [UInt32]$Size,
     [String]$SizeUnits = "MB",
-    [UInt32]$FPS = 0,
-    [String]$Destination = "",
+    [UInt32]$FPS,
+    [String]$Destination,
+    [Switch]$Shell,
     [Switch]$Prompt
 )
 
 $work = $PSScriptRoot
 $ffmpeg = "${work}\ffmpeg.exe"
 $ffprobe = "${work}\ffprobe.exe"
+$isWaitForUserInput = $Shell -or $Prompt
 
 echo "8mb PowerShell"
 echo ""
 
 function OnExit()
 {
-    if (!$Prompt)
+    if (!$isWaitForUserInput)
     {
         return
     }
