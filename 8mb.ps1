@@ -23,7 +23,7 @@ function Leave([Int32]$exitCode = 0)
     }
 
     echo ""
-    echo "Press any key to continue..."
+    echo "Press any key to exit..."
 
     [void][System.Console]::ReadKey($true)
 
