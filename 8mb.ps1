@@ -207,12 +207,12 @@ $sourceAudioBitrateAvg = (GetSourceAudioBitrate) / (GetSourceAudioTrackCount)
 $sourceFPS = GetSourceFPS
 
 $destSizeBytes = GetDestinationSize
-$destSizeBits = $destSizeBytes * 8
+$destSizeBits  = $destSizeBytes * 8
 
 # Precompute the destination bitrate and subtract the average
 # of the total audio bitrate to get a closer estimate and require
 # fewer attempts to transcode.
-$destBitrate = [math]::Round($destSizeBits / $duration) - $sourceAudioBitrateAvg
+$destBitrate = [math]::Max($sourceAudioBitrateAvg, [math]::Round($destSizeBits / $duration) - $sourceAudioBitrateAvg)
 
 # Throw if the destination size is greater than the source file size.
 if ($destSizeBytes -gt $sourceSizeBytes)
