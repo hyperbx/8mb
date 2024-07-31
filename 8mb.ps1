@@ -8,6 +8,10 @@ param
     [Switch]$PromptSize
 )
 
+$work = $PSScriptRoot
+$ffmpeg = "${work}\ffmpeg.exe"
+$ffprobe = "${work}\ffprobe.exe"
+
 echo "8mb PowerShell"
 echo ""
 
@@ -35,14 +39,14 @@ if ($PromptSize)
     echo ""
 }
 
-if (!(Test-Path ".\ffmpeg.exe"))
+if (!(Test-Path $ffmpeg))
 {
     echo "ffmpeg not found!"
     echo "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory."
     exit -1
 }
 
-if (!(Test-Path ".\ffprobe.exe"))
+if (!(Test-Path $ffprobe))
 {
     echo "ffprobe not found!"
     echo "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory."
@@ -92,12 +96,12 @@ function GetSizeBytes()
 
 function GetDuration()
 {
-    & .\ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $Source
+    & $ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $Source
 }
 
 function GetFrameRate()
 {
-    $result = & .\ffprobe -v error -select_streams v -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate $Source
+    $result = & $ffprobe -v error -select_streams v -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate $Source
     $split = $result -split '/'
     
     return [Double]$split[0] / [Double]$split[1]
@@ -105,7 +109,7 @@ function GetFrameRate()
 
 function Transcode([Int32]$bitrate)
 {
-    & .\ffmpeg -y -hide_banner -loglevel error -i $Source -filter:v fps=$FPS -b $bitrate -cpu-used [Environment]::ProcessorCount -c:a copy $Destination
+    & $ffmpeg -y -hide_banner -loglevel error -i $Source -filter:v fps=$FPS -b $bitrate -cpu-used [Environment]::ProcessorCount -c:a copy $Destination
 }
 
 if ($FPS -le 0)
