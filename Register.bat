@@ -21,18 +21,18 @@ reg add "%baseKey%" /v SubCommands /d "" /f
 reg add "%baseKey%" /v MUIVerb /d "Compress" /f
 
 reg add "%shellKey%\a_8MB" /ve /d "8 MB" /f
-reg add "%shellKey%\a_8MB\command" /ve /d "powershell \"%scriptPath%\" \"%%1\" 8 MB -Shell" /f
+reg add "%shellKey%\a_8MB\command" /ve /d "powershell \"%scriptPath%\" \"'%%1'\" 8 MB -Shell" /f
 
 reg add "%shellKey%\b_25MB" /ve /d "25 MB" /f
-reg add "%shellKey%\b_25MB\command" /ve /d "powershell \"%scriptPath%\" \"%%1\" 25 MB -Shell" /f
+reg add "%shellKey%\b_25MB\command" /ve /d "powershell \"%scriptPath%\" \"'%%1'\" 25 MB -Shell" /f
 
 reg add "%shellKey%\c_50MB" /ve /d "50 MB" /f
-reg add "%shellKey%\c_50MB\command" /ve /d "powershell \"%scriptPath%\" \"%%1\" 50 MB -Shell" /f
+reg add "%shellKey%\c_50MB\command" /ve /d "powershell \"%scriptPath%\" \"'%%1'\" 50 MB -Shell" /f
 
 reg add "%shellKey%\d_100MB" /ve /d "100 MB" /f
-reg add "%shellKey%\d_100MB\command" /ve /d "powershell \"%scriptPath%\" \"%%1\" 100 MB -Shell" /f
+reg add "%shellKey%\d_100MB\command" /ve /d "powershell \"%scriptPath%\" \"'%%1'\" 100 MB -Shell" /f
 
 reg add "%shellKey%\e_Custom" /ve /d "Custom" /f
-reg add "%shellKey%\e_Custom\command" /ve /d "powershell \"%scriptPath%\" \"%%1\" -Prompt" /f
+reg add "%shellKey%\e_Custom\command" /ve /d "powershell \"%scriptPath%\" \"'%%1'\" -Prompt" /f
 
 ENDLOCAL
