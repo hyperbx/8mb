@@ -98,7 +98,7 @@ function Transcode([Int32]$bitrate)
 
 function PromptSize()
 {
-    $result = Read-Host -Prompt "Enter destination size (MB)"
+    $result = Read-Host -Prompt "Enter destination size"
 
     if ([string]::IsNullOrEmpty($result))
     {
@@ -111,6 +111,30 @@ function PromptSize()
     }
 
     return PromptSize
+}
+
+function PromptSizeUnits()
+{
+    $result = Read-Host -Prompt "Enter destination size units (KB/MB)"
+
+    if ([string]::IsNullOrEmpty($result))
+    {
+        return PromptSizeUnits
+    }
+
+    $result = $result.ToLower()
+
+    if ($result.StartsWith("k") -or $result.StartsWith("m"))
+    {
+        if (!$result.EndsWith("b"))
+        {
+            return "${result}b"
+        }
+        
+        return $result
+    }
+
+    return PromptSizeUnits
 }
 
 function PromptFPS()
@@ -134,6 +158,7 @@ function PromptFPS()
 if ($Prompt)
 {
     $Size = PromptSize
+    $SizeUnits = PromptSizeUnits
     $FPS = PromptFPS
 
     echo ""
