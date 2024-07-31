@@ -17,70 +17,77 @@ $isWaitForUserInput = $Shell -or $Prompt
 echo "8mb PowerShell"
 echo ""
 
-function OnExit()
+function Leave([Int32]$exitCode = 0)
 {
     if (!$isWaitForUserInput)
     {
-        return
+        exit $exitCode
     }
 
     echo ""
     echo "Press any key to continue..."
 
     [void][System.Console]::ReadKey($true)
+
+    exit $exitCode
 }
 
 if (!(Test-Path $ffmpeg))
 {
     echo "ffmpeg not found!"
     echo "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory."
-    OnExit
-    exit -1
+    Leave -1
 }
 
 if (!(Test-Path $ffprobe))
 {
     echo "ffprobe not found!"
     echo "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory."
-    OnExit
-    exit -1
+    Leave -1
 }
 
 if (!(Test-Path $Source))
 {
     echo "File not found: $Source"
-    OnExit
-    exit -1
+    Leave -1
 }
 
-function GetSizeKilobytes()
+function GetSizeBytes()
 {
     $units = $SizeUnits.ToLower()
 
     if ($units -eq "kb")
     {
-        return $Size
+        return $Size * 1024
     }
     elseif ($units -eq "mb")
     {
-        return $Size * 1024
+        return $Size * 1024 * 1024
     }
-    else
-    {
-        echo "Invalid destination size: $Size $SizeUnits"
-        OnExit
-        exit -1
-    }
-}
 
-function GetSizeBytes()
-{
-    return (GetSizeKilobytes) * 1024
+    echo "Invalid destination size: $Size $SizeUnits"
+
+    Leave -1
 }
 
 function GetDuration()
 {
     & $ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $Source
+}
+
+function GetAudioBitrate()
+{
+    $bitrates = & $ffprobe -v error -select_streams a -show_entries stream=bit_rate -of default=noprint_wrappers=1:nokey=1 $Source
+    $bitrates = $bitrates -split "`n" | ForEach-Object { [Int32]$_ }
+
+    return ($bitrates | Measure-Object -Sum).Sum
+}
+
+function GetTotalAudioTracks()
+{
+    $tracks = & $ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 $Source
+
+    return ($tracks -split "`n").Count
 }
 
 function GetFrameRate()
@@ -167,8 +174,7 @@ if ($Prompt)
 if ($Size -le 0)
 {
     echo "Invalid destination size: $Size $SizeUnits"
-    OnExit
-    exit -1
+    Leave -1
 }
 
 if ($FPS -le 0)
@@ -184,32 +190,34 @@ if ([string]::IsNullOrEmpty($Destination))
 $tolerance = 10
 $toleranceThreshold = 1 + ($tolerance / 100)
 
-$sourceSizeB = (Get-Item $Source).Length
-$destSizeKB = GetSizeKilobytes
-$destSizeB = GetSizeBytes
-$sourceFPS = GetFrameRate
 $duration = GetDuration
-$bitrateAbs = $destSizeB / $duration
-$bitrate = [math]::Round($bitrateAbs + ($bitrateAbs * ($FPS / $sourceFPS)))
 
-if ($destSizeB -gt $sourceSizeB)
+$sourceSizeBytes = (Get-Item $Source).Length
+$sourceAudioBitrate = GetAudioBitrate
+$sourceAudioTracks = GetTotalAudioTracks
+$sourceAudioBitrateAvg = $sourceAudioBitrate / $sourceAudioTracks
+$sourceFPS = GetFrameRate
+
+$destSizeBytes = GetSizeBytes
+$destSizeBits = $destSizeBytes * 8
+$destBitrate = [math]::Round($destSizeBits / $duration) - $sourceAudioBitrateAvg
+
+if ($destSizeBytes -gt $sourceSizeBytes)
 {
     echo "The destination size cannot be larger than the source file size."
-    OnExit
-    exit -1
+    Leave -1
 }
 
 if ($duration -le 0)
 {
     echo "Invalid video duration: $duration"
-    OnExit
-    exit -1
+    Leave -1
 }
 
 echo "Source Path ------ : $Source"
 echo "Destination Path - : $Destination"
-echo "Source Size ------ : $(($sourceSizeB / 1024).ToString("N0")) KB ($($sourceSizeB.ToString("N0")) bytes)"
-echo "Destination Size - : $($destSizeKB.ToString("N0")) KB ($($destSizeB.ToString("N0")) bytes)"
+echo "Source Size ------ : $(($sourceSizeBytes / 1024).ToString("N0")) KB ($($sourceSizeBytes.ToString("N0")) bytes)"
+echo "Destination Size - : $(($destSizeBytes / 1024).ToString("N0")) KB ($($destSizeBytes.ToString("N0")) bytes)"
 
 if ($FPS -ne $sourceFPS)
 {
@@ -235,18 +243,18 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
         $factor = 1
     }
 
-    $bitrate = [math]::Round($bitrate * $factor)
-    $bitrateF = "$(($bitrate / 1024).ToString("N0")) Kbps"
+    $destBitrate  = [math]::Round($destBitrate * $factor)
+    $destBitrateF = "$(($destBitrate / 1024).ToString("N0")) Kbps"
 
-    if ($bitrate -le 1024)
+    if ($destBitrate -le 1024)
     {
-        echo "Attempt ${attempt}: attempted to encode at $bitrate bps, aborting..."
+        echo "Attempt ${attempt}: attempted to encode at $destBitrate bps, aborting..."
         break
     }
 
-    echo "Attempt ${attempt}: transcoding source file at $bitrateF using $([Environment]::ProcessorCount) CPU cores..."
+    echo "Attempt ${attempt}: transcoding source file at $destBitrateF using $([Environment]::ProcessorCount) CPU cores..."
 
-    Transcode $bitrate
+    Transcode $destBitrate
 
     if ($newSizeB -eq (Get-Item $Destination).Length)
     {
@@ -255,14 +263,14 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     }
 
     $newSizeB = (Get-Item $Destination).Length
-    $percent = (100 / $destSizeB) * $newSizeB
+    $percent = (100 / $destSizeBytes) * $newSizeB
     $factor = 100 / $percent
     
-    echo "Attempt ${attempt}: compressed $(($sourceSizeB / 1024).ToString("N0")) KB down to $(($newSizeB / 1024).ToString("N0")) KB at $bitrateF."
+    echo "Attempt ${attempt}: compressed $(($sourceSizeBytes / 1024).ToString("N0")) KB down to $(($newSizeB / 1024).ToString("N0")) KB at $destBitrateF."
 }
 
 $endTime = Get-Date
 
 echo ""
 echo "Finished at $endTime in $(($endTime - $startTime).TotalSeconds) seconds with $attempt attempt(s)."
-OnExit
+Leave
