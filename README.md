@@ -21,7 +21,7 @@ PS > .\8mb.ps1 -Source [Path]
                -SizeUnits (optional) [KB|MB (default)]
                -FPS (optional) [UInt32]
                -Destination (optional) [Path]
-               -PromptSize (optional)
+               -Prompt (optional)
 ```
 
 # Example
