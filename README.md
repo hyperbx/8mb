@@ -7,12 +7,21 @@
 - [ffprobe](https://ffbinaries.com/downloads)
 
 # Usage
+## Shell Extension
+Run `Register.bat` from the permanent storage location of `8mb.ps1` to extend the context menu of `*.mp4` files with the script.
+
+Right-clicking any `*.mp4` file will have a new `Compress` sub-menu with different size presets, along with a `Custom` size option.
+
+If the location of `8mb.ps1` changes, running `Register.bat` again will update the location in the registry accordingly.
+
+## Command Line
 ```ps
 PS > .\8mb.ps1 -Source [Path]
                -Size [UInt32]
                -SizeUnits (optional) [KB|MB (default)]
                -FPS (optional) [UInt32]
                -Destination (optional) [Path]
+               -PromptSize (optional)
 ```
 
 # Example
