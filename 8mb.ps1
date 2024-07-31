@@ -279,7 +279,7 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     # Break if attempted to transcode to the same file size.
     if ($newSizeB -eq (Get-Item $Destination).Length)
     {
-        echo "$attemptPrefix Cannot compress any smaller than $(($newSizeB / 1000).ToString("N0")) KB."
+        echo "$attemptPrefixBlank Cannot compress any smaller than $(($newSizeB / 1000).ToString("N0")) KB."
         break
     }
 
