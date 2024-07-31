@@ -9,17 +9,15 @@ param
     [Switch]$Prompt
 )
 
-$work = $PSScriptRoot
-$ffmpeg = "${work}\ffmpeg.exe"
-$ffprobe = "${work}\ffprobe.exe"
-$isWaitForUserInput = $Shell -or $Prompt
+$ffmpeg  = "${PSScriptRoot}\ffmpeg.exe"
+$ffprobe = "${PSScriptRoot}\ffprobe.exe"
 
 echo "8mb PowerShell"
 echo ""
 
 function Leave([Int32]$exitCode = 0)
 {
-    if (!$isWaitForUserInput)
+    if (!($Shell -or $Prompt))
     {
         exit $exitCode
     }
@@ -52,7 +50,8 @@ if (!(Test-Path $Source))
     Leave -1
 }
 
-function GetSizeBytes()
+# Gets the size of the destination file in bytes.
+function GetDestinationSize()
 {
     $units = $SizeUnits.ToLower()
 
@@ -70,12 +69,8 @@ function GetSizeBytes()
     Leave -1
 }
 
-function GetDuration()
-{
-    & $ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $Source
-}
-
-function GetAudioBitrate()
+# Gets the total bitrate of all audio tracks in the source file.
+function GetSourceAudioBitrate()
 {
     $bitrates = & $ffprobe -v error -select_streams a -show_entries stream=bit_rate -of default=noprint_wrappers=1:nokey=1 $Source
     $bitrates = $bitrates -split "`n" | ForEach-Object { [Int32]$_ }
@@ -83,14 +78,22 @@ function GetAudioBitrate()
     return ($bitrates | Measure-Object -Sum).Sum
 }
 
-function GetTotalAudioTracks()
+# Gets the total number of audio tracks in the source file.
+function GetSourceAudioTrackCount()
 {
     $tracks = & $ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 $Source
 
     return ($tracks -split "`n").Count
 }
 
-function GetFrameRate()
+# Gets the duration of the source file in seconds.
+function GetSourceDuration()
+{
+    & $ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $Source
+}
+
+# Gets the frame rate of the source file.
+function GetSourceFPS()
 {
     $result = & $ffprobe -v error -select_streams v -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate $Source
     $split = $result -split '/'
@@ -103,13 +106,14 @@ function Transcode([Int32]$bitrate)
     & $ffmpeg -y -hide_banner -loglevel error -i $Source -filter:v fps=$FPS -b $bitrate -cpu-used [Environment]::ProcessorCount -c:a copy $Destination
 }
 
-function PromptSize()
+# Prompt the user for the destination size in either kilobytes or megabytes.
+function PromptDestinationSize()
 {
     $result = Read-Host -Prompt "Enter destination size"
 
     if ([string]::IsNullOrEmpty($result))
     {
-        return PromptSize
+        return PromptDestinationSize
     }
 
     if ([int]::TryParse($result, [ref]$null))
@@ -117,16 +121,17 @@ function PromptSize()
         return [UInt32]$result
     }
 
-    return PromptSize
+    return PromptDestinationSize
 }
 
-function PromptSizeUnits()
+# Prompt the user for the units for the destination size.
+function PromptDestinationSizeUnits()
 {
     $result = Read-Host -Prompt "Enter destination size units (KB/MB)"
 
     if ([string]::IsNullOrEmpty($result))
     {
-        return PromptSizeUnits
+        return PromptDestinationSizeUnits
     }
 
     $result = $result.ToLower()
@@ -141,12 +146,13 @@ function PromptSizeUnits()
         return $result
     }
 
-    return PromptSizeUnits
+    return PromptDestinationSizeUnits
 }
 
-function PromptFPS()
+# Prompt the user for the destination frame rate.
+function PromptDestinationFPS()
 {
-    $sourceFPS = GetFrameRate
+    $sourceFPS = GetSourceFPS
     $result = Read-Host -Prompt "Enter destination FPS (default: ${sourceFPS})"
 
     if ([string]::IsNullOrEmpty($result))
@@ -159,29 +165,33 @@ function PromptFPS()
         return [UInt32]$result
     }
 
-    return PromptFPS
+    return PromptDestinationFPS
 }
 
+# Prompt the user to fill out the destination size and frame rate.
 if ($Prompt)
 {
-    $Size = PromptSize
-    $SizeUnits = PromptSizeUnits
-    $FPS = PromptFPS
+    $Size = PromptDestinationSize
+    $SizeUnits = PromptDestinationSizeUnits
+    $FPS = PromptDestinationFPS
 
     echo ""
 }
 
+# Throw if the destination size is less than or equal to zero.
 if ($Size -le 0)
 {
     echo "Invalid destination size: $Size $SizeUnits"
     Leave -1
 }
 
+# Ensure the destination frame rate is greater than zero.
 if ($FPS -le 0)
 {
-    $FPS = GetFrameRate
+    $FPS = GetSourceFPS
 }
 
+# Create temporary destination file name, if none was provided.
 if ([string]::IsNullOrEmpty($Destination))
 {
     $Destination = [System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($Source), "$([System.IO.Path]::GetFileNameWithoutExtension($Source)).${Size}$($SizeUnits.ToLower()).mp4")
@@ -190,24 +200,28 @@ if ([string]::IsNullOrEmpty($Destination))
 $tolerance = 10
 $toleranceThreshold = 1 + ($tolerance / 100)
 
-$duration = GetDuration
+$duration = GetSourceDuration
 
 $sourceSizeBytes = (Get-Item $Source).Length
-$sourceAudioBitrate = GetAudioBitrate
-$sourceAudioTracks = GetTotalAudioTracks
-$sourceAudioBitrateAvg = $sourceAudioBitrate / $sourceAudioTracks
-$sourceFPS = GetFrameRate
+$sourceAudioBitrateAvg = (GetSourceAudioBitrate) / (GetSourceAudioTrackCount)
+$sourceFPS = GetSourceFPS
 
-$destSizeBytes = GetSizeBytes
+$destSizeBytes = GetDestinationSize
 $destSizeBits = $destSizeBytes * 8
+
+# Precompute the destination bitrate and subtract the average
+# of the total audio bitrate to get a closer estimate and require
+# fewer attempts to transcode.
 $destBitrate = [math]::Round($destSizeBits / $duration) - $sourceAudioBitrateAvg
 
+# Throw if the destination size is greater than the source file size.
 if ($destSizeBytes -gt $sourceSizeBytes)
 {
     echo "The destination size cannot be larger than the source file size."
     Leave -1
 }
 
+# Throw if the video duration is less than or equal to zero.
 if ($duration -le 0)
 {
     echo "Invalid video duration: $duration"
@@ -238,27 +252,34 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
 {
     $attempt += 1
 
+    # Ensure the bitrate factor never reaches zero or below.
     if ($factor -le 0)
     {
         $factor = 1
     }
 
+    # Multiply bitrate by factor to increase/decrease file size on future attempts.
     $destBitrate  = [math]::Round($destBitrate * $factor)
     $destBitrateF = "$(($destBitrate / 1024).ToString("N0")) Kbps"
 
+    $attemptPrefix      = "Attempt ${attempt}:"
+    $attemptPrefixBlank = ' ' * $attemptPrefix.Length
+
+    # ffmpeg doesn't seem to like bitrates lower than 1 Kbps, so abort if this ever happens.
     if ($destBitrate -le 1024)
     {
-        echo "Attempt ${attempt}: attempted to encode at $destBitrate bps, aborting..."
+        echo "$attemptPrefix Attempted to encode at $destBitrate bps, aborting..."
         break
     }
 
-    echo "Attempt ${attempt}: transcoding source file at $destBitrateF using $([Environment]::ProcessorCount) CPU cores..."
+    echo "$attemptPrefix Transcoding at $destBitrateF using $([Environment]::ProcessorCount) CPU cores..."
 
     Transcode $destBitrate
 
+    # Break if attempted to transcode to the same file size.
     if ($newSizeB -eq (Get-Item $Destination).Length)
     {
-        echo "Attempt ${attempt}: cannot compress any smaller than $(($newSizeB / 1024).ToString("N0")) KB."
+        echo "$attemptPrefix Cannot compress any smaller than $(($newSizeB / 1024).ToString("N0")) KB."
         break
     }
 
@@ -266,12 +287,20 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     $percent = (100 / $destSizeBytes) * $newSizeB
     $factor = 100 / $percent
     
-    echo "Attempt ${attempt}: compressed $(($sourceSizeBytes / 1024).ToString("N0")) KB down to $(($newSizeB / 1024).ToString("N0")) KB at $destBitrateF."
+    echo "$attemptPrefixBlank Compressed to $(($newSizeB / 1024).ToString("N0")) KB."
+}
+
+$attemptPlural = "attempts"
+
+# Most pointless code in this script.
+if ($attempt -eq 1)
+{
+    $attemptPlural = "attempt"
 }
 
 $endTime = Get-Date
 
 echo ""
-echo "Finished at $endTime in $(($endTime - $startTime).TotalSeconds) seconds after $attempt attempt(s)."
+echo "Finished at $endTime in $(($endTime - $startTime).TotalSeconds) seconds after $attempt ${attemptPlural}."
 
 Leave
