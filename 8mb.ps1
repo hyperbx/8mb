@@ -3,7 +3,8 @@ param
     [String]$Source,
     [UInt32]$Size,
     [String]$SizeUnits = "MB",
-    [String]$Destination = ""
+    [UInt32]$FPS = 0,
+    [String]$Destination = "$([System.IO.Path]::GetFileNameWithoutExtension($Source)).${Size}$($SizeUnits.ToLower()).mp4"
 )
 
 echo "8mb PowerShell"
@@ -35,11 +36,6 @@ if ($Size -le 0)
     exit -1
 }
 
-if ([string]::IsNullOrEmpty($Destination))
-{
-    $Destination = "$([System.IO.Path]::GetFileNameWithoutExtension($Source)).compressed.mp4"
-}
-
 function GetSizeKilobytes()
 {
     $units = $SizeUnits.ToLower()
@@ -69,9 +65,22 @@ function GetDuration()
     & .\ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $Source
 }
 
+function GetFrameRate()
+{
+    $result = & .\ffprobe -v error -select_streams v -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate $Source
+    $split = $result -split '/'
+    
+    return [Double]$split[0] / [Double]$split[1]
+}
+
 function Transcode([Int32]$bitrate)
 {
-    & .\ffmpeg -y -hide_banner -loglevel error -i $Source -b $bitrate -cpu-used [Environment]::ProcessorCount -c:a copy $Destination
+    & .\ffmpeg -y -hide_banner -loglevel error -i $Source -filter:v fps=$FPS -b $bitrate -cpu-used [Environment]::ProcessorCount -c:a copy $Destination
+}
+
+if ($FPS -le 0)
+{
+    $FPS = GetFrameRate
 }
 
 $tolerance = 10
@@ -80,8 +89,10 @@ $toleranceThreshold = 1 + ($tolerance / 100)
 $sourceSizeB = (Get-Item $Source).Length
 $destSizeKB = GetSizeKilobytes
 $destSizeB = GetSizeBytes
+$sourceFPS = GetFrameRate
 $duration = GetDuration
-$bitrate = [math]::Round($destSizeB / $duration)
+$bitrateAbs = $destSizeB / $duration
+$bitrate = [math]::Round($bitrateAbs + ($bitrateAbs * ($FPS / $sourceFPS)))
 
 if ($duration -le 0)
 {
@@ -93,6 +104,13 @@ echo "Source Path ------ : $Source"
 echo "Destination Path - : $Destination"
 echo "Source Size ------ : $(($sourceSizeB / 1024).ToString("N0")) KB ($($sourceSizeB.ToString("N0")) bytes)"
 echo "Destination Size - : $($destSizeKB.ToString("N0")) KB ($($destSizeB.ToString("N0")) bytes)"
+
+if ($FPS -ne $sourceFPS)
+{
+    echo "Source FPS ------- : $sourceFPS FPS"
+    echo "Destination FPS -- : $FPS FPS"
+}
+
 echo ""
 
 $factor = 0
