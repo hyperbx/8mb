@@ -8,9 +8,13 @@
 
 # Usage
 ## Shell Extension
-Run `Register.bat` from the permanent storage location of `8mb.ps1` to extend the context menu of `*.mp4` files with the script.
+Run `Register.bat` from the permanent location of `8mb.ps1` to extend the context menu of `*.mp4` files with the script.
 
-Right-clicking any `*.mp4` file will have a new `Compress` sub-menu with different size presets, along with a `Custom` size option.
+<p align="center">
+    <img src="https://github.com/user-attachments/assets/b7239e80-2ecf-4d5c-a3f0-11ceadc4c716"/>
+</p>
+
+Right-clicking any `*.mp4` file will have a new sub-menu with different size presets.
 
 If the location of `8mb.ps1` changes, running `Register.bat` again will update the location in the registry accordingly.
 
