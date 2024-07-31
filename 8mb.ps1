@@ -4,11 +4,36 @@ param
     [UInt32]$Size,
     [String]$SizeUnits = "MB",
     [UInt32]$FPS = 0,
-    [String]$Destination = "$([System.IO.Path]::GetFileNameWithoutExtension($Source)).${Size}$($SizeUnits.ToLower()).mp4"
+    [String]$Destination = "",
+    [Switch]$PromptSize
 )
 
 echo "8mb PowerShell"
 echo ""
+
+function PromptSize()
+{
+    $result = Read-Host -Prompt "Enter destination size (MB)"
+
+    if ([string]::IsNullOrEmpty($result))
+    {
+        return PromptSize
+    }
+
+    if ([int]::TryParse($result, [ref]$null))
+    {
+        return [UInt32]$result
+    }
+
+    return PromptSize
+}
+
+if ($PromptSize)
+{
+    $Size = PromptSize
+
+    echo ""
+}
 
 if (!(Test-Path ".\ffmpeg.exe"))
 {
@@ -34,6 +59,11 @@ if ($Size -le 0)
 {
     echo "Invalid destination size: $Size $SizeUnits"
     exit -1
+}
+
+if ([string]::IsNullOrEmpty($Destination))
+{
+    $Destination = "$([System.IO.Path]::GetFileNameWithoutExtension($Source)).${Size}$($SizeUnits.ToLower()).mp4"
 }
 
 function GetSizeKilobytes()
