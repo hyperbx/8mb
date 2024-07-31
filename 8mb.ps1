@@ -221,7 +221,7 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     $percent = (100 / $destSizeB) * $newSizeB
     $factor = 100 / $percent
     
-    echo "Attempt ${attempt}: compressed $(($sourceSizeB / 1024).ToString("N0")) MB down to $(($newSizeB / 1024).ToString("N0")) MB at $bitrateF."
+    echo "Attempt ${attempt}: compressed $(($sourceSizeB / 1024).ToString("N0")) KB down to $(($newSizeB / 1024).ToString("N0")) KB at $bitrateF."
 }
 
 $endTime = Get-Date
