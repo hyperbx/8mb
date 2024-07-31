@@ -223,6 +223,12 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
 
     Transcode $bitrate
 
+    if ($newSizeB -eq (Get-Item $Destination).Length)
+    {
+        echo "Attempt ${attempt}: cannot compress any smaller than $(($newSizeB / 1024).ToString("N0")) KB."
+        break
+    }
+
     $newSizeB = (Get-Item $Destination).Length
     $percent = (100 / $destSizeB) * $newSizeB
     $factor = 100 / $percent
