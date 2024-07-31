@@ -178,7 +178,7 @@ if ($FPS -le 0)
 
 if ([string]::IsNullOrEmpty($Destination))
 {
-    $Destination = "$([System.IO.Path]::GetFileNameWithoutExtension($Source)).${Size}$($SizeUnits.ToLower()).mp4"
+    $Destination = [System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($Source), "$([System.IO.Path]::GetFileNameWithoutExtension($Source)).${Size}$($SizeUnits.ToLower()).mp4")
 }
 
 $tolerance = 10
