@@ -1,39 +1,31 @@
 # 8mb
-8MB video compression bash script for ffmpeg. 
+8MB video compression PowerShell script for ffmpeg.
 
-I refuse to pay for Discord Nitro. Stop giving them money. They've raised [$0.9945 Bn of Venture Capital](https://www.crunchbase.com/organization/discord/company_financials). They don't need your money.
+# Prerequisites
+- Windows PowerShell
+- [ffmpeg](https://ffbinaries.com/downloads)
+- [ffprobe](https://ffbinaries.com/downloads)
 
-New, iterative process usage:
+# Usage
 ```
-matthewbaggett@exploding-bolts:~$ 8mb.py ~/Downloads/chooch.mp4
-Attempt 1 : Transcoding /home/geusebio/Downloads/chooch.mp4 at bitrate 52667
-Attempt 1 : Original size: 48.30 MB New size: 3.59 MB Percentage of target: 45 and bitrate 52667
-Attempt 2 : Transcoding /home/geusebio/Downloads/chooch.mp4 at bitrate 117441
-Attempt 2 : Original size: 48.30 MB New size: 4.80 MB Percentage of target: 60 and bitrate 117441
-Attempt 3 : Transcoding /home/geusebio/Downloads/chooch.mp4 at bitrate 195825
-Attempt 3 : Original size: 48.30 MB New size: 6.28 MB Percentage of target: 78 and bitrate 195825
-Attempt 4 : Transcoding /home/geusebio/Downloads/chooch.mp4 at bitrate 249600
-Attempt 4 : Original size: 48.30 MB New size: 7.30 MB Percentage of target: 91 and bitrate 249600
-Completed in 4 attempts.
-```
+PS > .\8mb.ps1 .\a.mp4 8 MB
+8mb PowerShell
 
-Now with ~~gusto~~ docker:
-```
-matthewbaggett@exploding-bolts:~$ docker run -v ~/Downloads:/vidja matthewbaggett/8mb /vidja/chooch.mp4
-Attempt 1 : Transcoding /home/geusebio/Downloads/chooch.mp4 at bitrate 52667
-Attempt 1 : Original size: 48.30 MB New size: 3.59 MB Percentage of target: 45 and bitrate 52667
-Attempt 2 : Transcoding /home/geusebio/Downloads/chooch.mp4 at bitrate 117441
-Attempt 2 : Original size: 48.30 MB New size: 4.80 MB Percentage of target: 60 and bitrate 117441
-Attempt 3 : Transcoding /home/geusebio/Downloads/chooch.mp4 at bitrate 195825
-Attempt 3 : Original size: 48.30 MB New size: 6.28 MB Percentage of target: 78 and bitrate 195825
-Attempt 4 : Transcoding /home/geusebio/Downloads/chooch.mp4 at bitrate 249600
-Attempt 4 : Original size: 48.30 MB New size: 7.30 MB Percentage of target: 91 and bitrate 249600
-Completed in 4 attempts.
-```
+Source Path ------ : .\a.mp4
+Destination Path - : a.compressed.mp4
+Source Size ------ : 205,834 KB (210,774,113 bytes)
+Destination Size - : 8,192 KB (8,388,608 bytes)
 
-Old Usage:
-```
-matthewbaggett@bidness:~$ 8mb Downloads/video_2021-05-04_04-50-36.mp4
-Shrinking Downloads/video_2021-05-04_04-50-36.mp4 to 8192KB. Bitrate: 1420k
-Rebuilt file as Downloads/video_2021-05-04_04-50-36.mp4.shrunk.mp4, shrank to 14% of original size
+Starting transcode at 07/31/2024 11:51:23.
+
+Attempt 1: transcoding source file at 135 Kbps using 12 CPU cores...
+Attempt 1: compressed 205,834 MB down to 3,488 MB at 135 Kbps.
+Attempt 2: transcoding source file at 318 Kbps using 12 CPU cores...
+Attempt 2: compressed 205,834 MB down to 3,830 MB at 318 Kbps.
+Attempt 3: transcoding source file at 680 Kbps using 12 CPU cores...
+Attempt 3: compressed 205,834 MB down to 6,447 MB at 680 Kbps.
+Attempt 4: transcoding source file at 863 Kbps using 12 CPU cores...
+Attempt 4: compressed 205,834 MB down to 7,819 MB at 863 Kbps.
+
+Finished at 07/31/2024 11:53:36 in 132.8912433 seconds with 4 attempt(s).
 ```
