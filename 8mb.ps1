@@ -33,16 +33,30 @@ function Leave([Int32]$exitCode = 0)
 
 if (!(Test-Path $ffmpeg))
 {
-    echo "ffmpeg not found!"
-    echo "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory."
-    Leave -1
+    try
+    {
+        $ffmpeg = (Get-Command ffmpeg -ErrorAction Stop).Path
+    }
+    catch
+    {
+        echo "ffmpeg not found!"
+        echo "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory."
+        Leave -1
+    }
 }
 
 if (!(Test-Path $ffprobe))
 {
-    echo "ffprobe not found!"
-    echo "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory."
-    Leave -1
+    try
+    {
+        $ffprobe = (Get-Command ffprobe -ErrorAction Stop).Path
+    }
+    catch
+    {
+        echo "ffprobe not found!"
+        echo "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory."
+        Leave -1
+    }
 }
 
 if (!(Test-Path $Source))
