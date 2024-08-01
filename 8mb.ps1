@@ -3,6 +3,7 @@ param
     [String]$Source,
     [UInt32]$Size,
     [String]$SizeUnits = "MB",
+    [Single]$Scale = 1.0,
     [UInt32]$FPS,
     [String]$Destination,
     [Switch]$Shell,
@@ -101,9 +102,21 @@ function GetSourceFPS()
     return [Double]$split[0] / [Double]$split[1]
 }
 
+# Gets the resolution of the source file.
+function GetSourceResolution()
+{
+    return & $ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 $Source
+}
+
 function Transcode([Int32]$bitrate)
 {
-    & $ffmpeg -y -hide_banner -loglevel error -i $Source -filter:v fps=$FPS -b $bitrate -cpu-used [Environment]::ProcessorCount -c:a copy $Destination
+    [UInt32]$width, [UInt32]$height = (GetSourceResolution) -split ','
+    
+    # Set resolution scale.
+    $width  *= $Scale
+    $height *= $Scale
+
+    & $ffmpeg -y -hide_banner -loglevel error -i $Source -filter:v "fps=${FPS},scale=${width}:${height}:flags=lanczos" -b $bitrate -cpu-used [Environment]::ProcessorCount -c:a copy $Destination
 }
 
 # Prompt the user for the destination size in either kilobytes or megabytes.
@@ -149,6 +162,24 @@ function PromptDestinationSizeUnits()
     return PromptDestinationSizeUnits
 }
 
+# Prompt the user for the destination scale.
+function PromptDestinationScale()
+{
+    $result = Read-Host -Prompt "Enter destination scale (default: 1.0)"
+
+    if ([string]::IsNullOrEmpty($result))
+    {
+        return 1.0
+    }
+
+    if ([float]::TryParse($result, [ref]$null))
+    {
+        return [Single]$result
+    }
+
+    return PromptDestinationScale
+}
+
 # Prompt the user for the destination frame rate.
 function PromptDestinationFPS()
 {
@@ -173,6 +204,7 @@ if ($Prompt)
 {
     $Size      = PromptDestinationSize
     $SizeUnits = PromptDestinationSizeUnits
+    $Scale     = PromptDestinationScale
     $FPS       = PromptDestinationFPS
 
     echo ""
@@ -185,10 +217,26 @@ if ($Size -le 0)
     Leave -1
 }
 
+# Throw if the destination scale is less than or equal to zero.
+if ($Scale -le 0)
+{
+    echo "Invalid destination scale: $Scale"
+    Leave -1
+}
+
+$sourceFPS = GetSourceFPS
+
+# Throw if the destination FPS is greater than the source FPS.
+if ($FPS -gt $sourceFPS)
+{
+    echo "The destination FPS cannot be larger than the source FPS."
+    Leave -1
+}
+
 # Ensure the destination frame rate is greater than zero.
 if ($FPS -le 0)
 {
-    $FPS = GetSourceFPS
+    $FPS = $sourceFPS
 }
 
 # Create temporary destination file name, if none was provided.
@@ -203,21 +251,19 @@ $toleranceThreshold = 1 + ($tolerance / 100)
 $duration = GetSourceDuration
 
 $sourceSizeBytes = (Get-Item $Source).Length
-$sourceAudioBitrateAvg = (GetSourceAudioBitrate) / (GetSourceAudioTrackCount)
-$sourceFPS = GetSourceFPS
+$sourceAudioBitrateAverage = (GetSourceAudioBitrate) / (GetSourceAudioTrackCount)
 
 $destSizeBytes = GetDestinationSize
-$destSizeBits  = $destSizeBytes * 8
 
 # Precompute the destination bitrate and subtract the average
 # of the total audio bitrate to get a closer estimate and require
 # fewer attempts to transcode.
-$destBitrate = [math]::Max($sourceAudioBitrateAvg, [math]::Round($destSizeBits / $duration) - $sourceAudioBitrateAvg)
+$destBitrate = [math]::Max($sourceAudioBitrateAverage, [math]::Round(($destSizeBytes * 8) / $duration) - $sourceAudioBitrateAverage)
 
-# Throw if the destination size is greater than the source file size.
+# Throw if the destination size is greater than the source size.
 if ($destSizeBytes -gt $sourceSizeBytes)
 {
-    echo "The destination size cannot be larger than the source file size."
+    echo "The destination size cannot be larger than the source size."
     Leave -1
 }
 
@@ -228,16 +274,24 @@ if ($duration -le 0)
     Leave -1
 }
 
-echo "Source Path ------ : $Source"
-echo "Destination Path - : $Destination"
-echo "Source Size ------ : $(($sourceSizeBytes / 1000).ToString("N0")) KB ($($sourceSizeBytes.ToString("N0")) bytes)"
-echo "Destination Size - : $(($destSizeBytes / 1000).ToString("N0")) KB ($($destSizeBytes.ToString("N0")) bytes)"
-
-if ($FPS -ne $sourceFPS)
+function PrintInfo([String]$path, [UInt32]$sizeBytes, [Single]$scale, [UInt32]$fps)
 {
-    echo "Source FPS ------- : $sourceFPS FPS"
-    echo "Destination FPS -- : $FPS FPS"
+    [UInt32]$width, [UInt32]$height = (GetSourceResolution) -split ','
+
+    echo "Path -- : $path"
+    echo "Size -- : $(($sizeBytes / 1000).ToString("N0")) KB ($($sizeBytes.ToString("N0")) bytes)"
+    echo "Scale - : $scale ($($width * $scale)x$($height * $scale))"
+    echo "FPS --- : $fps FPS"
 }
+
+echo "Source ==================================="
+echo ""
+PrintInfo $Source $sourceSizeBytes 1.0 $sourceFPS
+echo ""
+
+echo "Destination =============================="
+echo ""
+PrintInfo $Destination $destSizeBytes $Scale $FPS
 
 $startTime = Get-Date
 
@@ -246,7 +300,7 @@ echo "Starting transcode at ${startTime}. Enter CTRL+C to cancel."
 echo ""
 
 $attempt = 0
-$factor = 0
+$factor  = 0
 
 while ($factor -gt $toleranceThreshold -or $factor -lt 1)
 {
@@ -277,17 +331,17 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     Transcode $destBitrate
 
     # Break if attempted to transcode to the same file size.
-    if ($newSizeB -eq (Get-Item $Destination).Length)
+    if ($newSizeBytes -eq (Get-Item $Destination).Length)
     {
-        echo "$attemptPrefixBlank Cannot compress any smaller than $(($newSizeB / 1000).ToString("N0")) KB."
+        echo "$attemptPrefixBlank Cannot compress any further than $(($newSizeBytes / 1000).ToString("N0")) KB."
         break
     }
 
-    $newSizeB = (Get-Item $Destination).Length
-    $percent  = (100 / $destSizeBytes) * $newSizeB
-    $factor   = (100 / $percent)
+    $newSizeBytes = (Get-Item $Destination).Length
+    $percent = (100 / $destSizeBytes) * $newSizeBytes
+    $factor = (100 / $percent)
     
-    echo "$attemptPrefixBlank Compressed to $(($newSizeB / 1000).ToString("N0")) KB."
+    echo "$attemptPrefixBlank Compressed to $(($newSizeBytes / 1000).ToString("N0")) KB."
 }
 
 $attemptPlural = "attempts"

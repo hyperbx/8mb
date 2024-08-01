@@ -24,9 +24,10 @@ If the location of `8mb.ps1` changes, running `Register.bat` again will update t
 ```ps
 PS > .\8mb.ps1 -Source [Path]
                -Size [UInt32]
-               -SizeUnits (optional) [KB|MB (default)]
-               -FPS (optional) [UInt32]
-               -Destination (optional) [Path]
+               -SizeUnits [KB|MB (default)] (optional)
+               -Scale [Single] (optional)
+               -FPS [UInt32] (optional)
+               -Destination [Path] (optional)
 ```
 
 # Example
@@ -34,15 +35,24 @@ PS > .\8mb.ps1 -Source [Path]
 PS > .\8mb.ps1 a.mp4 8 MB
 8mb PowerShell
 
-Source Path ------ : a.mp4
-Destination Path - : a.8mb.mp4
-Source Size ------ : 205,834 KB (210,774,113 bytes)
-Destination Size - : 8,192 KB (8,388,608 bytes)
+Source ===================================
 
-Starting transcode at 07/31/2024 21:04:37. Enter CTRL+C to cancel.
+Path -- : D:\Source\Forks\hyperbx\8mb\a.mp4
+Size -- : 210,774 KB (210,774,113 bytes)
+Scale - : 1 (2560x1072)
+FPS --- : 60 FPS
 
-Attempt 1: Transcoding at 899 Kbps using 12 CPU cores...
-           Compressed to 8,083 KB.
+Destination ==============================
 
-Finished at 07/31/2024 21:05:15 in 37.909302 seconds after 1 attempt.
+Path -- : D:\Source\Forks\hyperbx\8mb\a.8mb.mp4
+Size -- : 8,000 KB (8,000,000 bytes)
+Scale - : 0.5 (1280x536)
+FPS --- : 30 FPS
+
+Starting transcode at 08/01/2024 02:13:36. Enter CTRL+C to cancel.
+
+Attempt 1: Transcoding at 870 Kbps using 12 CPU cores...
+           Compressed to 7,881 KB.
+
+Finished at 08/01/2024 02:13:48 in 11.4919225 seconds after 1 attempt.
 ```
