@@ -87,6 +87,12 @@ function GetSourceAudioTrackCount()
     return ($tracks -split "`n").Count
 }
 
+# Gets the average bitrate across all audio tracks.
+function GetSourceAudioBitrateAverage()
+{
+    return (GetSourceAudioBitrate) / (GetSourceAudioTrackCount)
+}
+
 # Gets the duration of the source file in seconds.
 function GetSourceDuration()
 {
@@ -108,7 +114,7 @@ function GetSourceResolution()
     return & $ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 $Source
 }
 
-function Transcode([Int32]$bitrate)
+function Transcode([UInt32]$videoBitrate, [UInt32]$audioBitrate)
 {
     [UInt32]$width, [UInt32]$height = (GetSourceResolution) -split ','
     
@@ -116,7 +122,7 @@ function Transcode([Int32]$bitrate)
     $width  *= $Scale
     $height *= $Scale
 
-    & $ffmpeg -y -hide_banner -loglevel error -i $Source -filter:v "fps=${FPS},scale=${width}:${height}:flags=lanczos" -b $bitrate -cpu-used [Environment]::ProcessorCount -c:a copy $Destination
+    & $ffmpeg -y -hide_banner -loglevel error -i $Source -cpu-used [Environment]::ProcessorCount -filter:v "fps=${FPS},scale=${width}:${height}:flags=lanczos" -b:v $videoBitrate -c:a aac -b:a $audioBitrate $Destination
 }
 
 # Prompt the user for the destination size in either kilobytes or megabytes.
@@ -245,20 +251,9 @@ if ([string]::IsNullOrEmpty($Destination))
     $Destination = [System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($Source), "$([System.IO.Path]::GetFileNameWithoutExtension($Source)).${Size}$($SizeUnits.ToLower()).mp4")
 }
 
-$tolerance = 10
-$toleranceThreshold = 1 + ($tolerance / 100)
-
-$duration = GetSourceDuration
-
 $sourceSizeBytes = (Get-Item $Source).Length
-$sourceAudioBitrateAverage = (GetSourceAudioBitrate) / (GetSourceAudioTrackCount)
-
 $destSizeBytes = GetDestinationSize
-
-# Precompute the destination bitrate and subtract the average
-# of the total audio bitrate to get a closer estimate and require
-# fewer attempts to transcode.
-$destBitrate = [math]::Max($sourceAudioBitrateAverage, [math]::Round(($destSizeBytes * 8) / $duration) - $sourceAudioBitrateAverage)
+$duration = GetSourceDuration
 
 # Throw if the destination size is greater than the source size.
 if ($destSizeBytes -gt $sourceSizeBytes)
@@ -299,12 +294,21 @@ echo ""
 echo "Starting transcode at ${startTime}. Enter CTRL+C to cancel."
 echo ""
 
-$attempt = 0
-$factor  = 0
+$tolerance = 10
+$toleranceThreshold = 1 + ($tolerance / 100)
+$pass = 0
+$factor = 0
+
+# Compute destination bitrate based on compression ratio of target size, with a minimum of 64 Kbps.
+$destAudioBitrate = 65535 + ((GetSourceAudioBitrateAverage) - 65535) * $destSizeBytes / $sourceSizeBytes
+
+# Precompute the destination bitrate and subtract the audio bitrate
+# to get a closer estimate and require fewer attempts to transcode.
+$destVideoBitrate = [math]::Max($destAudioBitrate, ($destSizeBytes * 8) / $duration) - $destAudioBitrate
 
 while ($factor -gt $toleranceThreshold -or $factor -lt 1)
 {
-    $attempt += 1
+    $pass += 1
 
     # Ensure the bitrate factor never reaches zero or below.
     if ($factor -le 0)
@@ -312,28 +316,31 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
         $factor = 1
     }
 
-    # Multiply bitrate by factor to increase/decrease file size on future attempts.
-    $destBitrate  = [math]::Round($destBitrate * $factor)
-    $destBitrateF = "$(($destBitrate / 1000).ToString("N0")) Kbps"
+    # Multiply bitrate by factor to increase/decrease file size on further passes.
+    $destVideoBitrate = [math]::Round($destVideoBitrate * $factor)
 
-    $attemptPrefix      = "Attempt ${attempt}:"
-    $attemptPrefixBlank = ' ' * $attemptPrefix.Length
+    $destAudioBitrateF = "$(($destAudioBitrate / 1024).ToString("N0")) Kbps"
+    $destVideoBitrateF = "$(($destVideoBitrate / 1024).ToString("N0")) Kbps"
+
+    $passPrefix      = "Pass ${pass}:"
+    $passPrefixBlank = ' ' * $passPrefix.Length
 
     # ffmpeg doesn't seem to like bitrates lower than 1 Kbps, so abort if this ever happens.
-    if ($destBitrate -le 1024)
+    if ($destVideoBitrate -le 1024)
     {
-        echo "$attemptPrefix Attempted to encode at $destBitrate bps, aborting..."
+        echo "$passPrefix Attempted to transcode video at $destVideoBitrate bps, aborting..."
         break
     }
 
-    echo "$attemptPrefix Transcoding at $destBitrateF using $([Environment]::ProcessorCount) CPU cores..."
+    echo "$passPrefix Transcoding using $([Environment]::ProcessorCount) CPU cores..."
+    echo "$passPrefixBlank Video: ${destVideoBitrateF}, Audio: ${destAudioBitrateF}"
 
-    Transcode $destBitrate
+    Transcode $destVideoBitrate $destAudioBitrate
 
     # Break if attempted to transcode to the same file size.
     if ($newSizeBytes -eq (Get-Item $Destination).Length)
     {
-        echo "$attemptPrefixBlank Cannot compress any further than $(($newSizeBytes / 1000).ToString("N0")) KB."
+        echo "$passPrefixBlank Cannot compress any further than $(($newSizeBytes / 1024).ToString("N0")) KiB ()."
         break
     }
 
@@ -341,20 +348,20 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     $percent = (100 / $destSizeBytes) * $newSizeBytes
     $factor = (100 / $percent)
     
-    echo "$attemptPrefixBlank Compressed to $(($newSizeBytes / 1000).ToString("N0")) KB."
+    echo "$passPrefixBlank Compressed to $(($newSizeBytes / 1024).ToString("N0")) KiB."
 }
 
-$attemptPlural = "attempts"
+$passPlural = "passes"
 
 # Most pointless code in this script.
-if ($attempt -eq 1)
+if ($pass -eq 1)
 {
-    $attemptPlural = "attempt"
+    $passPlural = "pass"
 }
 
 $endTime = Get-Date
 
 echo ""
-echo "Finished at $endTime in $(($endTime - $startTime).TotalSeconds) seconds after $attempt ${attemptPlural}."
+echo "Finished at $endTime in $(($endTime - $startTime).TotalSeconds) seconds after $pass ${passPlural}."
 
 Leave
