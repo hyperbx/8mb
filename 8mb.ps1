@@ -274,7 +274,7 @@ if ($duration -le 0)
     Leave -1
 }
 
-function PrintInfo([String]$path, [UInt32]$sizeBytes, [Single]$scale, [UInt32]$fps)
+function PrintInfo([String]$path, [UInt64]$sizeBytes, [Single]$scale, [UInt32]$fps)
 {
     [UInt32]$width, [UInt32]$height = (GetSourceResolution) -split ','
 
