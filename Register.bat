@@ -21,7 +21,7 @@ reg add "%baseKey%" /v SubCommands /d "" /f
 reg add "%baseKey%" /v MUIVerb /d "Compress" /f
 
 reg add "%shellKey%\a_8MB" /ve /d "8 MB" /f
-reg add "%shellKey%\a_8MB\command" /ve /d "powershell -ExecutionPolicy Bypass -File \"%scriptPath%\" -Source \"%%1\" 8 MB 0.5 30 -Shell" /f
+reg add "%shellKey%\a_8MB\command" /ve /d "powershell -ExecutionPolicy Bypass -File \"%scriptPath%\" -Source \"%%1\" 8 MB 0.5 24 -Shell" /f
 
 reg add "%shellKey%\b_25MB" /ve /d "25 MB" /f
 reg add "%shellKey%\b_25MB\command" /ve /d "powershell -ExecutionPolicy Bypass -File \"%scriptPath%\" -Source \"%%1\" 25 MB 0.75 30 -Shell" /f
