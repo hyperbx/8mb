@@ -300,6 +300,7 @@ $tolerance = 10
 $toleranceThreshold = 1 + ($tolerance / 100)
 $pass = 0
 $factor = 0
+$isReachedOptimalCompression = 0
 
 # Compute destination bitrate based on compression ratio of target size, with a minimum of 64 Kbps.
 $destAudioBitrate = 65535 + ((GetSourceAudioBitrateAverage) - 65535) * $destSizeBytes / $sourceSizeBytes
@@ -339,18 +340,22 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
 
     Transcode $destVideoBitrate $destAudioBitrate
 
-    # Break if attempted to transcode to the same file size.
+    # Signal to break if transcoded to the same file size.
     if ($newSizeBytes -eq (Get-Item $Destination).Length)
     {
-        echo "$passPrefixBlank Cannot compress any further than $(($newSizeBytes / 1024).ToString("N0")) KiB ()."
-        break
+        $isReachedOptimalCompression = 1
     }
 
     $newSizeBytes = (Get-Item $Destination).Length
     $percent = (100 / $destSizeBytes) * $newSizeBytes
     $factor = (100 / $percent)
     
-    echo "$passPrefixBlank Compressed to $(($newSizeBytes / 1024).ToString("N0")) KiB."
+    echo "$passPrefixBlank Compressed to $(($newSizeBytes / 1024).ToString("N0")) KiB ($($newSizeBytes.ToString("N0")) bytes)."
+
+    if ($isReachedOptimalCompression)
+    {
+        break
+    }
 }
 
 $passPlural = "passes"
