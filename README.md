@@ -22,12 +22,12 @@ If the location of `8mb.ps1` changes, running `Register.bat` again will update t
 
 ## Command Line
 ```ps
-PS > .\8mb.ps1 -Source [String]
-               -Size [UInt32]
+PS > .\8mb.ps1 -Source [string]
+               -Size [uint64]
                -SizeUnits [KB|KiB|MB (default)|MiB] (optional)
-               -Scale [Single] (optional)
-               -FPS [Single] (optional)
-               -Destination [String] (optional)
+               -Scale [float] (optional)
+               -FPS [float] (optional)
+               -Destination [string] (optional)
 ```
 
 # Example

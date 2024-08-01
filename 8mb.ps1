@@ -1,13 +1,13 @@
 param
 (
-    [String]$Source,
-    [UInt32]$Size,
-    [String]$SizeUnits = "MB",
-    [Single]$Scale = 1.0,
-    [Single]$FPS,
-    [String]$Destination,
-    [Switch]$Shell,
-    [Switch]$Prompt
+    [string]$Source,
+    [uint64]$Size,
+    [string]$SizeUnits = "MB",
+    [float]$Scale = 1.0,
+    [float]$FPS,
+    [string]$Destination,
+    [switch]$Shell,
+    [switch]$Prompt
 )
 
 $ffmpeg  = "${PSScriptRoot}\ffmpeg.exe"
@@ -16,7 +16,7 @@ $ffprobe = "${PSScriptRoot}\ffprobe.exe"
 echo "8mb PowerShell"
 echo ""
 
-function Leave([Int32]$exitCode = 0)
+function Leave([int32]$exitCode = 0)
 {
     if (!($Shell -or $Prompt))
     {
@@ -26,7 +26,7 @@ function Leave([Int32]$exitCode = 0)
     echo ""
     echo "Press any key to exit..."
 
-    [void][System.Console]::ReadKey($true)
+    [System.Console]::ReadKey($true)
 
     exit $exitCode
 }
@@ -96,7 +96,7 @@ function GetDestinationSize()
 function GetSourceAudioBitrate()
 {
     $bitrates = & $ffprobe -v error -select_streams a -show_entries stream=bit_rate -of default=noprint_wrappers=1:nokey=1 $Source
-    $bitrates = $bitrates -split "`n" | ForEach-Object { [Int32]$_ }
+    $bitrates = $bitrates -split "`n" | ForEach-Object { [uint64]$_ }
 
     return ($bitrates | Measure-Object -Sum).Sum
 }
@@ -127,7 +127,7 @@ function GetSourceFPS()
     $result = & $ffprobe -v error -select_streams v -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate $Source
     $split = $result -split '/'
     
-    return [Double]$split[0] / [Double]$split[1]
+    return [double]$split[0] / [double]$split[1]
 }
 
 # Gets the resolution of the source file.
@@ -136,9 +136,9 @@ function GetSourceResolution()
     return & $ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 $Source
 }
 
-function Transcode([UInt32]$videoBitrate, [UInt32]$audioBitrate)
+function Transcode([uint64]$videoBitrate, [uint64]$audioBitrate)
 {
-    [UInt32]$width, [UInt32]$height = (GetSourceResolution) -split ','
+    [uint32]$width, [uint32]$height = (GetSourceResolution) -split ','
     
     # Set resolution scale.
     $width  *= $Scale
@@ -157,9 +157,9 @@ function PromptDestinationSize()
         return PromptDestinationSize
     }
 
-    if ([int]::TryParse($result, [ref]$null))
+    if ([uint64]::TryParse($result, [ref]$null))
     {
-        return [UInt32]$result
+        return [uint64]$result
     }
 
     return PromptDestinationSize
@@ -176,6 +176,7 @@ function PromptDestinationSizeUnits()
     }
 
     $result = $result.ToLower()
+
     if ($result -eq "kb" -or $result -eq "kib" -or $result -eq "mb" -or $result -eq "mib")
     {
         return $result
@@ -196,7 +197,7 @@ function PromptDestinationScale()
 
     if ([float]::TryParse($result, [ref]$null))
     {
-        return [Single]$result
+        return [float]$result
     }
 
     return PromptDestinationScale
@@ -215,7 +216,7 @@ function PromptDestinationFPS()
 
     if ([float]::TryParse($result, [ref]$null))
     {
-        return [Single]$result
+        return [float]$result
     }
 
     return PromptDestinationFPS
@@ -285,9 +286,9 @@ if ($duration -le 0)
     Leave -1
 }
 
-function PrintInfo([String]$path, [UInt64]$sizeBytes, [Single]$scale, [Single]$fps)
+function PrintInfo([string]$path, [uint64]$sizeBytes, [float]$scale, [float]$fps)
 {
-    [UInt32]$width, [UInt32]$height = (GetSourceResolution) -split ','
+    [uint32]$width, [uint32]$height = (GetSourceResolution) -split ','
 
     echo "Path -- : $path"
     echo "Size -- : $(($sizeBytes / 1024).ToString("N0")) KiB ($($sizeBytes.ToString("N0")) bytes)"
@@ -321,7 +322,7 @@ $destAudioBitrate = 65535 + ((GetSourceAudioBitrateAverage) - 65535) * $destSize
 
 # Precompute the destination bitrate and subtract the audio bitrate
 # to get a closer estimate and require fewer attempts to transcode.
-$destVideoBitrate = [math]::Max($destAudioBitrate, ($destSizeBytes * 8) / $duration) - $destAudioBitrate
+$destVideoBitrate = [Math]::Max($destAudioBitrate, ($destSizeBytes * 8) / $duration) - $destAudioBitrate
 
 while ($factor -gt $toleranceThreshold -or $factor -lt 1)
 {
@@ -334,7 +335,7 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     }
 
     # Multiply bitrate by factor to increase/decrease file size on further passes.
-    $destVideoBitrate = [math]::Round($destVideoBitrate * $factor)
+    $destVideoBitrate = [Math]::Round($destVideoBitrate * $factor)
 
     $destAudioBitrateF = "$(($destAudioBitrate / 1024).ToString("N0")) Kbps"
     $destVideoBitrateF = "$(($destVideoBitrate / 1024).ToString("N0")) Kbps"
