@@ -4,7 +4,7 @@ param
     [UInt32]$Size,
     [String]$SizeUnits = "MB",
     [Single]$Scale = 1.0,
-    [UInt32]$FPS,
+    [Single]$FPS,
     [String]$Destination,
     [Switch]$Shell,
     [Switch]$Prompt
@@ -213,9 +213,9 @@ function PromptDestinationFPS()
         return $sourceFPS
     }
 
-    if ([int]::TryParse($result, [ref]$null))
+    if ([float]::TryParse($result, [ref]$null))
     {
-        return [UInt32]$result
+        return [Single]$result
     }
 
     return PromptDestinationFPS
@@ -285,7 +285,7 @@ if ($duration -le 0)
     Leave -1
 }
 
-function PrintInfo([String]$path, [UInt64]$sizeBytes, [Single]$scale, [UInt32]$fps)
+function PrintInfo([String]$path, [UInt64]$sizeBytes, [Single]$scale, [Single]$fps)
 {
     [UInt32]$width, [UInt32]$height = (GetSourceResolution) -split ','
 
