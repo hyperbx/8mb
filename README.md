@@ -24,7 +24,7 @@ If the location of `8mb.ps1` changes, running `Register.bat` again will update t
 ```ps
 PS > .\8mb.ps1 -Source [Path]
                -Size [UInt32]
-               -SizeUnits [KB|MB (default)] (optional)
+               -SizeUnits [KB|KiB|MB (default)|MiB] (optional)
                -Scale [Single] (optional)
                -FPS [UInt32] (optional)
                -Destination [Path] (optional)
@@ -38,21 +38,22 @@ PS > .\8mb.ps1 a.mp4 8 MB 0.5 24
 Source ===================================
 
 Path -- : a.mp4
-Size -- : 210,774 KB (210,774,113 bytes)
+Size -- : 205,834 KiB (210,774,113 bytes)
 Scale - : 1 (2560x1072)
 FPS --- : 60 FPS
 
 Destination ==============================
 
 Path -- : a.8mb.mp4
-Size -- : 8,000 KB (8,000,000 bytes)
+Size -- : 7,813 KiB (8,000,000 bytes)
 Scale - : 0.5 (1280x536)
 FPS --- : 24 FPS
 
-Starting transcode at 08/01/2024 02:13:36. Enter CTRL+C to cancel.
+Starting transcode at 08/01/2024 15:49:37. Enter CTRL+C to cancel.
 
-Attempt 1: Transcoding at 870 Kbps using 12 CPU cores...
-           Compressed to 7,881 KB.
+Pass 1: Transcoding using 12 CPU cores...
+        Video: 963 Kbps, Audio: 68 Kbps
+        Compressed to 7,597 KiB.
 
-Finished at 08/01/2024 02:13:48 in 11.4919225 seconds after 1 attempt.
+Finished at 08/01/2024 15:49:49 in 11.5191719 seconds after 1 pass.
 ```

@@ -60,9 +60,17 @@ function GetDestinationSize()
     {
         return $Size * 1000
     }
+    elseif ($units -eq "kib")
+    {
+        return $Size * 1024
+    }
     elseif ($units -eq "mb")
     {
         return $Size * 1000 * 1000
+    }
+    elseif ($units -eq "mib")
+    {
+        return $Size * 1024 * 1024
     }
 
     echo "Invalid destination size: $Size $SizeUnits"
@@ -146,7 +154,7 @@ function PromptDestinationSize()
 # Prompt the user for the units for the destination size.
 function PromptDestinationSizeUnits()
 {
-    $result = Read-Host -Prompt "Enter destination size units (KB/MB)"
+    $result = Read-Host -Prompt "Enter destination size units (KB|KiB|MB|MiB)"
 
     if ([string]::IsNullOrEmpty($result))
     {
@@ -154,14 +162,8 @@ function PromptDestinationSizeUnits()
     }
 
     $result = $result.ToLower()
-
-    if ($result.StartsWith("k") -or $result.StartsWith("m"))
+    if ($result -eq "kb" -or $result -eq "kib" -or $result -eq "mb" -or $result -eq "mib")
     {
-        if (!$result.EndsWith("b"))
-        {
-            return "${result}b"
-        }
-        
         return $result
     }
 
@@ -274,7 +276,7 @@ function PrintInfo([String]$path, [UInt64]$sizeBytes, [Single]$scale, [UInt32]$f
     [UInt32]$width, [UInt32]$height = (GetSourceResolution) -split ','
 
     echo "Path -- : $path"
-    echo "Size -- : $(($sizeBytes / 1000).ToString("N0")) KB ($($sizeBytes.ToString("N0")) bytes)"
+    echo "Size -- : $(($sizeBytes / 1024).ToString("N0")) KiB ($($sizeBytes.ToString("N0")) bytes)"
     echo "Scale - : $scale ($($width * $scale)x$($height * $scale))"
     echo "FPS --- : $fps FPS"
 }
