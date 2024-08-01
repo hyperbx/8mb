@@ -329,9 +329,9 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     $passPrefixBlank = ' ' * $passPrefix.Length
 
     # ffmpeg doesn't seem to like bitrates lower than 1 Kbps, so abort if this ever happens.
-    if ($destVideoBitrate -le 1024)
+    if ($destVideoBitrate -le 1024 -or $destAudioBitrate -le 1024)
     {
-        echo "$passPrefix Attempted to transcode video at $destVideoBitrate bps, aborting..."
+        echo "$passPrefix Attempted to transcode below 1 Kbps, aborting..."
         break
     }
 
