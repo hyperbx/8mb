@@ -32,7 +32,7 @@ PS > .\8mb.ps1 -Source [Path]
 
 # Example
 ```ps
-PS > .\8mb.ps1 a.mp4 8 MB
+PS > .\8mb.ps1 a.mp4 8 MB 0.5 24
 8mb PowerShell
 
 Source ===================================
@@ -47,7 +47,7 @@ Destination ==============================
 Path -- : a.8mb.mp4
 Size -- : 8,000 KB (8,000,000 bytes)
 Scale - : 0.5 (1280x536)
-FPS --- : 30 FPS
+FPS --- : 24 FPS
 
 Starting transcode at 08/01/2024 02:13:36. Enter CTRL+C to cancel.
 
