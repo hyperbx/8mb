@@ -37,14 +37,14 @@ PS > .\8mb.ps1 a.mp4 8 MB
 
 Source ===================================
 
-Path -- : D:\Source\Forks\hyperbx\8mb\a.mp4
+Path -- : a.mp4
 Size -- : 210,774 KB (210,774,113 bytes)
 Scale - : 1 (2560x1072)
 FPS --- : 60 FPS
 
 Destination ==============================
 
-Path -- : D:\Source\Forks\hyperbx\8mb\a.8mb.mp4
+Path -- : a.8mb.mp4
 Size -- : 8,000 KB (8,000,000 bytes)
 Scale - : 0.5 (1280x536)
 FPS --- : 30 FPS
