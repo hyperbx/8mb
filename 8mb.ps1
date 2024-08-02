@@ -10,7 +10,8 @@ param
     [float]$FPS,
     [string]$Destination,
     [switch]$Shell,
-    [switch]$Prompt
+    [switch]$Prompt,
+    [switch]$NoUpdates
 )
 
 $ffmpeg  = "${PSScriptRoot}\ffmpeg.exe"
@@ -101,7 +102,10 @@ function CheckForUpdates()
     PromptUpdate
 }
 
-CheckForUpdates
+if (!$NoUpdates)
+{
+    CheckForUpdates
+}
 
 if (!(Test-Path $ffmpeg))
 {

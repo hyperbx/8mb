@@ -22,12 +22,13 @@ If the location of `8mb.ps1` changes, running `Register.bat` again will update t
 
 ## Command Line
 ```ps
-PS > .\8mb.ps1 -Source [string]
-               -Size [uint64]
-               -SizeUnits [KB|KiB|MB (default)|MiB] (optional)
-               -Scale [float] (optional)
-               -FPS [float] (optional)
-               -Destination [string] (optional)
+PS > .\8mb.ps1 -Source      [string]                   # the source file path.
+               -Size        [uint64]                   # the destination file size.
+               -SizeUnits   [KB|KiB|MB|MiB] (optional) # the destination file size units (MB is default).
+               -Scale       [float]         (optional) # the destination resolution scale.
+               -FPS         [float]         (optional) # the destination FPS.
+               -Destination [string]        (optional) # the destination file path.
+               -NoUpdates   [switch]        (optional) # disables the auto-updater on start.
 ```
 
 # Example
