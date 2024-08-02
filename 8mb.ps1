@@ -1,3 +1,6 @@
+# 8mb PowerShell
+# Written by Hyper, original by Matthew Baggett
+
 param
 (
     [string]$Source,
@@ -30,6 +33,75 @@ function Leave([int32]$exitCode = 0)
 
     exit $exitCode
 }
+
+# Check for updates to the script.
+# This is probably a bit of a stretch existing for this thing.
+function CheckForUpdates()
+{
+    if (!(Test-Connection -ComputerName "github.com" -Count 1 -Quiet))
+    {
+        return
+    }
+    
+    $response = Invoke-WebRequest -Uri "https://raw.githubusercontent.com/hyperbx/8mb/main/8mb.ps1"
+
+    $currentScript = [System.IO.File]::ReadAllText($PSCommandPath)
+    $remoteScript  = $response.Content
+
+    if ($currentScript -eq $remoteScript)
+    {
+        return
+    }
+
+    $verify = "# 8mb PowerShell"
+
+    # Verify that the remote script was downloaded successfully.
+    if (!($remoteScript.StartsWith($verify) -and $remoteScript.EndsWith($verify)))
+    {
+        return
+    }
+
+    function PromptUpdate()
+    {
+        $result = Read-Host "An update is available, would you like to download it? [Y|N]"
+        $result = $result.ToLower()
+
+        if ($result -eq "n")
+        {
+            echo ""
+            return
+        }
+        elseif ($result -eq "y")
+        {
+            [System.IO.File]::WriteAllText($PSCommandPath, $remoteScript)
+
+            $args = "-ExecutionPolicy Bypass -File `"${PSCommandPath}`" `"${Source}`" $Size $SizeUnits $Scale $FPS `"${Destination}`""
+
+            if ($Shell)
+            {
+                $args += "-Shell"
+            }
+
+            if ($Prompt)
+            {
+                $args += "-Prompt"
+            }
+
+            Clear-Host
+            Start-Process powershell -ArgumentList $args -NoNewWindow
+            
+            exit
+        }
+        else
+        {
+            PromptUpdate
+        }
+    }
+
+    PromptUpdate
+}
+
+CheckForUpdates
 
 if (!(Test-Path $ffmpeg))
 {
@@ -195,7 +267,7 @@ function PromptDestinationSize()
 # Prompt the user for the units for the destination size.
 function PromptDestinationSizeUnits()
 {
-    $result = Read-Host -Prompt "Enter destination size units (KB|KiB|MB|MiB)"
+    $result = Read-Host -Prompt "Enter destination size units [KB|KiB|MB|MiB]"
 
     if ([string]::IsNullOrEmpty($result))
     {
@@ -215,7 +287,7 @@ function PromptDestinationSizeUnits()
 # Prompt the user for the destination scale.
 function PromptDestinationScale()
 {
-    $result = Read-Host -Prompt "Enter destination scale (default: 1.0)"
+    $result = Read-Host -Prompt "Enter destination scale [default: 1.0]"
 
     if ([string]::IsNullOrEmpty($result))
     {
@@ -234,7 +306,7 @@ function PromptDestinationScale()
 function PromptDestinationFPS()
 {
     $sourceFPS = GetSourceFPS
-    $result = Read-Host -Prompt "Enter destination FPS (default: ${sourceFPS})"
+    $result = Read-Host -Prompt "Enter destination FPS [default: ${sourceFPS}]"
 
     if ([string]::IsNullOrEmpty($result))
     {
@@ -379,7 +451,7 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     }
 
     echo "$passPrefix Transcoding using $([Environment]::ProcessorCount) CPU cores..."
-    echo "$passPrefixBlank Video: ${destVideoBitrateF}, Audio: ${destAudioBitrateF}"
+    echo "$passPrefixBlank Video: ${destVideoBitrateF}. Audio: ${destAudioBitrateF}."
 
     Transcode $destVideoBitrate $destAudioBitrate
 
@@ -415,3 +487,5 @@ echo ""
 echo "Finished at $endTime in $(($endTime - $startTime).TotalSeconds) seconds after $pass ${passPlural}."
 
 Leave
+
+# 8mb PowerShell

@@ -49,11 +49,11 @@ Size -- : 7,813 KiB (8,000,000 bytes)
 Scale - : 0.5 (1280x536)
 FPS --- : 24 FPS
 
-Starting transcode at 08/01/2024 16:29:28. Enter CTRL+C to cancel.
+Starting transcode at 08/02/2024 03:09:36. Enter CTRL+C to cancel.
 
 Pass 1: Transcoding using 12 CPU cores...
-        Video: 963 Kbps, Audio: 68 Kbps
-        Compressed to 7,597 KiB (7,779,020 bytes).
+        Video: 881 Kbps. Audio: 151 Kbps.
+        Compressed to 7,620 KiB (7,802,745 bytes).
 
-Finished at 08/01/2024 16:29:39 in 10.9649922 seconds after 1 pass.
+Finished at 08/02/2024 03:09:47 in 11.1135412 seconds after 1 pass.
 ```
