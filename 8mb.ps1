@@ -95,7 +95,12 @@ function GetDestinationSize()
 # Gets the total bitrate of all audio tracks in the source file.
 function GetSourceAudioBitrate()
 {
-    $bitrates = & $ffprobe -v error -select_streams a -show_entries stream=bit_rate -of default=noprint_wrappers=1:nokey=1 $Source
+    $bitrates = & $ffprobe -v error `
+                           -select_streams a `
+                           -show_entries stream=bit_rate `
+                           -of default=noprint_wrappers=1:nokey=1 `
+                           $Source
+
     $bitrates = $bitrates -split "`n" | ForEach-Object { [uint64]$_ }
 
     return ($bitrates | Measure-Object -Sum).Sum
@@ -124,7 +129,12 @@ function GetSourceDuration()
 # Gets the frame rate of the source file.
 function GetSourceFPS()
 {
-    $result = & $ffprobe -v error -select_streams v -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate $Source
+    $result = & $ffprobe -v error `
+                         -select_streams v `
+                         -of default=noprint_wrappers=1:nokey=1 `
+                         -show_entries stream=r_frame_rate `
+                         $Source
+
     $split = $result -split '/'
     
     return [double]$split[0] / [double]$split[1]
@@ -144,7 +154,16 @@ function Transcode([uint64]$videoBitrate, [uint64]$audioBitrate)
     $width  *= $Scale
     $height *= $Scale
 
-    & $ffmpeg -y -hide_banner -loglevel error -i $Source -cpu-used [Environment]::ProcessorCount -filter:v "fps=${FPS},scale=${width}:${height}:flags=lanczos" -b:v $videoBitrate -c:a aac -b:a $audioBitrate $Destination
+    & $ffmpeg -y `
+              -hide_banner `
+              -loglevel error `
+              -i $Source `
+              -cpu-used [Environment]::ProcessorCount `
+              -filter:v "fps=${FPS},scale=${width}:${height}:flags=lanczos" `
+              -b:v $videoBitrate `
+              -c:a aac `
+              -b:a $audioBitrate `
+              $Destination
 }
 
 # Prompt the user for the destination size in either kilobytes or megabytes.
@@ -265,7 +284,8 @@ if ($FPS -le 0)
 # Create temporary destination file name, if none was provided.
 if ([string]::IsNullOrEmpty($Destination))
 {
-    $Destination = [System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($Source), "$([System.IO.Path]::GetFileNameWithoutExtension($Source)).${Size}$($SizeUnits.ToLower()).mp4")
+    $Destination = [System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($Source), `
+        "$([System.IO.Path]::GetFileNameWithoutExtension($Source)).${Size}$($SizeUnits.ToLower()).mp4")
 }
 
 $sourceSizeBytes = (Get-Item $Source).Length
