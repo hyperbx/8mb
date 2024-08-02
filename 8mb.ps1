@@ -450,8 +450,8 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
         break
     }
 
-    echo "$passPrefix Transcoding using $([Environment]::ProcessorCount) CPU cores..."
-    echo "$passPrefixBlank Video: ${destVideoBitrateF}. Audio: ${destAudioBitrateF}."
+    echo "$passPrefix Video: ${destVideoBitrateF}. Audio: ${destAudioBitrateF}."
+    echo "$passPrefixBlank Transcoding using $([Environment]::ProcessorCount) CPU cores..."
 
     Transcode $destVideoBitrate $destAudioBitrate
 

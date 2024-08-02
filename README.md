@@ -51,8 +51,8 @@ FPS --- : 24 FPS
 
 Starting transcode at 08/02/2024 03:09:36. Enter CTRL+C to cancel.
 
-Pass 1: Transcoding using 12 CPU cores...
-        Video: 881 Kbps. Audio: 151 Kbps.
+Pass 1: Video: 881 Kbps. Audio: 151 Kbps.
+        Transcoding using 12 CPU cores...
         Compressed to 7,620 KiB (7,802,745 bytes).
 
 Finished at 08/02/2024 03:09:47 in 11.1135412 seconds after 1 pass.
