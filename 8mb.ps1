@@ -114,12 +114,6 @@ function GetSourceAudioTrackCount()
     return ($tracks -split "`n").Count
 }
 
-# Gets the average bitrate across all audio tracks.
-function GetSourceAudioBitrateAverage()
-{
-    return (GetSourceAudioBitrate) / (GetSourceAudioTrackCount)
-}
-
 # Gets the duration of the source file in seconds.
 function GetSourceDuration()
 {
@@ -154,11 +148,25 @@ function Transcode([uint64]$videoBitrate, [uint64]$audioBitrate)
     $width  *= $Scale
     $height *= $Scale
 
+    $audioMergeFilter = ""
+    $audioTrackCount  = GetSourceAudioTrackCount
+
+    # Create complex filter for merging all audio tracks.
+    for ($i = 0; $i -lt $audioTrackCount; $i++)
+    {
+        $audioMergeFilter += "[0:a:${i}]"
+    }
+
+    $audioMergeFilter += "amerge=inputs=${audioTrackCount}[aout]"
+
     & $ffmpeg -y `
               -hide_banner `
               -loglevel error `
               -i $Source `
               -cpu-used [Environment]::ProcessorCount `
+              -filter_complex $audioMergeFilter `
+              -map 0:v `
+              -map "[aout]" `
               -filter:v "fps=${FPS},scale=${width}:${height}:flags=lanczos" `
               -b:v $videoBitrate `
               -c:a aac `
@@ -338,7 +346,7 @@ $factor = 0
 $isReachedOptimalCompression = 0
 
 # Compute destination bitrate based on compression ratio of target size, with a minimum of 64 Kbps.
-$destAudioBitrate = 65535 + ((GetSourceAudioBitrateAverage) - 65535) * $destSizeBytes / $sourceSizeBytes
+$destAudioBitrate = (65535 + ((GetSourceAudioBitrate) - 65535) * $destSizeBytes / $sourceSizeBytes) * (GetSourceAudioTrackCount)
 
 # Precompute the destination bitrate and subtract the audio bitrate
 # to get a closer estimate and require fewer attempts to transcode.
