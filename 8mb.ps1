@@ -230,13 +230,30 @@ function GetSourceResolution()
     return & $ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 $Source
 }
 
+# Gets the resolution of the source file scaled to the user value.
+function GetSourceResolutionScaled()
+{
+    function Even([uint32]$value)
+    {
+        if ($value % 2 -ne 0)
+        {
+            return $value + 1
+        }
+
+        return $value
+    }
+    
+    [uint32]$width, [uint32]$height = (GetSourceResolution) -split ','
+
+    $width = Even ($width * $Scale)
+    $height = Even ($height * $Scale)
+
+    return @($width, $height)
+}
+
 function Transcode([uint64]$videoBitrate, [uint64]$audioBitrate)
 {
-    [uint32]$width, [uint32]$height = (GetSourceResolution) -split ','
-    
-    # Set resolution scale.
-    $width  *= $Scale
-    $height *= $Scale
+    [uint32]$width, [uint32]$height = (GetSourceResolutionScaled) -split ','
 
     $audioMergeFilter = ""
     $audioTrackCount  = GetSourceAudioTrackCount
@@ -444,11 +461,11 @@ if ($duration -le 0)
 
 function PrintInfo([string]$path, [uint64]$sizeBytes, [float]$scale, [float]$fps)
 {
-    [uint32]$width, [uint32]$height = (GetSourceResolution) -split ','
+    [uint32]$width, [uint32]$height = (GetSourceResolutionScaled) -split ','
 
     echo "Path -- : $path"
     echo "Size -- : $(($sizeBytes / 1024).ToString("N0")) KiB ($($sizeBytes.ToString("N0")) bytes)"
-    echo "Scale - : $scale ($($width * $scale)x$($height * $scale))"
+    echo "Scale - : $scale (${width}x${height})"
     echo "FPS --- : $fps FPS"
 }
 
