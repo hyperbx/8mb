@@ -352,17 +352,15 @@ if ($Scale -le 0)
 
 $sourceFPS = GetSourceFPS
 
-# Throw if the destination FPS is greater than the source FPS.
-if ($FPS -gt $sourceFPS)
-{
-    echo "The destination FPS cannot be larger than the source FPS."
-    Leave -1
-}
-
-# Ensure the destination frame rate is greater than zero.
 if ($FPS -le 0)
 {
+    # Ensure the destination frame rate is greater than zero.
     $FPS = $sourceFPS
+}
+else
+{
+    # Ensure the destination frame rate is less than the source frame rate.
+    $FPS = [Math]::Min($FPS, $sourceFPS)
 }
 
 # Create temporary destination file name, if none was provided.
