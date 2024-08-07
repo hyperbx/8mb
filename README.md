@@ -9,6 +9,8 @@
 # Usage
 Download the Windows binaries for both ffmpeg and ffprobe from the [Prerequisites](#prerequisites) section and extract them into the script directory.
 
+If either binaries are in PATH, they will be searched for there first.
+
 ## Shell Extension
 Run `Register.bat` to extend the context menu of `*.mp4` files with the script.
 
