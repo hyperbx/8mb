@@ -11,14 +11,23 @@ param
     [string]$Destination,
     [switch]$Shell,
     [switch]$Prompt,
-    [switch]$NoUpdates
+    [switch]$NoUpdates,
+    [switch]$NoAudioTrackMerge
 )
+
+$isAudioTrackMerge = !$NoAudioTrackMerge
 
 $ffmpeg  = "${PSScriptRoot}\ffmpeg.exe"
 $ffprobe = "${PSScriptRoot}\ffprobe.exe"
 
-echo "8mb PowerShell"
-echo ""
+function Refresh()
+{
+    Clear-Host
+    echo "8mb PowerShell"
+    echo ""
+}
+
+Refresh
 
 function Leave([int32]$exitCode = 0)
 {
@@ -69,7 +78,7 @@ function CheckForUpdates()
 
         if ($result -eq "n")
         {
-            echo ""
+            Refresh
             return
         }
         elseif ($result -eq "y")
@@ -185,6 +194,11 @@ function GetSourceAudioBitrate()
 # Gets the total number of audio tracks in the source file.
 function GetSourceAudioTrackCount()
 {
+    if (!$isAudioTrackMerge)
+    {
+        return 1
+    }
+
     $tracks = & $ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 $Source
 
     return ($tracks -split "`n").Count
@@ -325,6 +339,39 @@ function PromptDestinationFPS()
     return PromptDestinationFPS
 }
 
+function PromptDestinationAudioTracks()
+{
+    $audioTrackCount = GetSourceAudioTrackCount
+
+    if ($audioTrackCount -eq 1)
+    {
+        return 1
+    }
+
+    $tracksPlural = "tracks"
+    $itemPlural = "them"
+
+    if (($audioTrackCount - 1) -eq 1)
+    {
+        $tracksPlural = "track"
+        $itemPlural = "it"
+    }
+
+    $result = Read-Host -Prompt "Found $($audioTrackCount - 1) additional audio ${tracksPlural}, would you like to merge ${itemPlural}? [Y|N]"
+    $result = $result.ToLower()
+
+    if ($result -eq "y")
+    {
+        return 1
+    }
+    elseif ($result -eq "n")
+    {
+        return 0
+    }
+
+    return PromptDestinationAudioTracks
+}
+
 # Prompt the user to fill out the destination size and frame rate.
 if ($Prompt)
 {
@@ -334,6 +381,13 @@ if ($Prompt)
     $FPS       = PromptDestinationFPS
 
     echo ""
+}
+
+if ($Prompt -or $Shell)
+{
+    $isAudioTrackMerge = PromptDestinationAudioTracks
+
+    Refresh
 }
 
 # Throw if the destination size is less than or equal to zero.
