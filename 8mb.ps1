@@ -322,16 +322,21 @@ function PromptDestinationSizeUnits()
 # Prompt the user for the destination scale.
 function PromptDestinationScale()
 {
-    $result = Read-Host -Prompt "Enter destination scale [default: 1.0]"
+    $input = Read-Host -Prompt "Enter destination scale [default: 1.0]"
 
-    if ([string]::IsNullOrEmpty($result))
+    if ([string]::IsNullOrEmpty($input))
     {
         return 1.0
     }
 
-    if ([float]::TryParse($result, [ref]$null))
+    [float]$result = 0
+    
+    if ([float]::TryParse($input, `
+        [System.Globalization.NumberStyles]::Float, `
+        [System.Globalization.CultureInfo]::CurrentCulture, `
+        [ref]$result))
     {
-        return [float]$result
+        return $result
     }
 
     return PromptDestinationScale
@@ -341,16 +346,21 @@ function PromptDestinationScale()
 function PromptDestinationFPS()
 {
     $sourceFPS = GetSourceFPS
-    $result = Read-Host -Prompt "Enter destination FPS [default: ${sourceFPS}]"
+    $input = Read-Host -Prompt "Enter destination FPS [default: ${sourceFPS}]"
 
-    if ([string]::IsNullOrEmpty($result))
+    if ([string]::IsNullOrEmpty($input))
     {
         return $sourceFPS
     }
 
-    if ([float]::TryParse($result, [ref]$null))
+    [float]$result = 0
+
+    if ([float]::TryParse($input, `
+        [System.Globalization.NumberStyles]::Float, `
+        [System.Globalization.CultureInfo]::CurrentCulture, `
+        [ref]$result))
     {
-        return [float]$result
+        return $result
     }
 
     return PromptDestinationFPS
