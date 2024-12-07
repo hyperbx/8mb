@@ -227,7 +227,10 @@ function GetSourceFPS()
 # Gets the resolution of the source file.
 function GetSourceResolution()
 {
-    return & $ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 $Source
+    [string]$result = & $ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of json $Source
+    $json = ConvertFrom-Json $result
+
+    return ($json.streams[0].width, $json.streams[0].height)
 }
 
 # Gets the resolution of the source file scaled to the user value.
