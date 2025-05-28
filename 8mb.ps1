@@ -227,7 +227,10 @@ function GetSourceFPS()
 # Gets the resolution of the source file.
 function GetSourceResolution()
 {
-    return & $ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 $Source
+    [string]$result = & $ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of json $Source
+    $json = ConvertFrom-Json $result
+
+    return ($json.streams[0].width, $json.streams[0].height)
 }
 
 # Gets the resolution of the source file scaled to the user value.
@@ -255,25 +258,29 @@ function Transcode([uint64]$videoBitrate, [uint64]$audioBitrate)
 {
     [uint32]$width, [uint32]$height = (GetSourceResolutionScaled) -split ','
 
-    $audioMergeFilter = ""
+    $audioParams = @()
     $audioTrackCount  = GetSourceAudioTrackCount
-
-    # Create complex filter for merging all audio tracks.
-    for ($i = 0; $i -lt $audioTrackCount; $i++)
-    {
-        $audioMergeFilter += "[0:a:${i}]"
+    if ($audioTrackCount -gt 0) {
+        $audioMergeFilter = ""
+        
+        # Create complex filter for merging all audio tracks.
+        for ($i = 0; $i -lt $audioTrackCount; $i++)
+        {
+            $audioMergeFilter += "[0:a:${i}]"
+        }
+        
+        $audioMergeFilter += "amerge=inputs=${audioTrackCount}[aout]"
+        
+        $audioParams = @("-filter_complex", $audioMergeFilter, "-map", "`"[aout]`"")
     }
-
-    $audioMergeFilter += "amerge=inputs=${audioTrackCount}[aout]"
 
     & $ffmpeg -y `
               -hide_banner `
               -loglevel error `
               -i $Source `
               -cpu-used [Environment]::ProcessorCount `
-              -filter_complex $audioMergeFilter `
+              $audioParams `
               -map 0:v `
-              -map "[aout]" `
               -filter:v "fps=${FPS},scale=${width}:${height}:flags=lanczos" `
               -b:v $videoBitrate `
               -c:a aac `
@@ -370,7 +377,7 @@ function PromptDestinationAudioTracks()
 {
     $audioTrackCount = GetSourceAudioTrackCount
 
-    if ($audioTrackCount -eq 1)
+    if ($audioTrackCount -le 1)
     {
         return 1
     }
@@ -527,7 +534,8 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     $passPrefixBlank = ' ' * $passPrefix.Length
 
     # ffmpeg doesn't seem to like bitrates lower than 1 Kbps, so abort if this ever happens.
-    if ($destVideoBitrate -le 1024 -or $destAudioBitrate -le 1024)
+    # 0 audio bitrate means there is no audio stream.
+    if ($destVideoBitrate -le 1024 -or ($destAudioBitrate -ne 0 -and $destAudioBitrate -le 1024))
     {
         echo "$passPrefix Attempted to transcode below 1 Kbps, aborting..."
         break
