@@ -1,8 +1,8 @@
 # 8mb
-8MB video compression PowerShell script for ffmpeg.
+8MB video compression PowerShell script for FFmpeg.
 
 # Prerequisites
-- Windows PowerShell
+- PowerShell
 - [ffmpeg](https://ffbinaries.com/downloads)
 - [ffprobe](https://ffbinaries.com/downloads)
 
@@ -30,7 +30,7 @@ PS > .\8mb.ps1 -Source      [string]                   # the source file path.
                -Scale       [float]         (optional) # the destination resolution scale.
                -FPS         [float]         (optional) # the destination FPS.
                -Destination [string]        (optional) # the destination file path.
-               -NoUpdates   [switch]        (optional) # disables the auto-updater on start.
+               -NoUpdates   [switch]        (optional) # disables the update checker (can also now be disabled in 8mb.ini).
 ```
 
 # Example
@@ -52,11 +52,11 @@ Size -- : 7,813 KiB (8,000,000 bytes)
 Scale - : 0.5 (1280x536)
 FPS --- : 24 FPS
 
-Starting transcode at 08/02/2024 03:09:36. Enter CTRL+C to cancel.
+Starting transcode at 09/10/2025 18:34:11. Enter CTRL+C to cancel.
 
 Pass 1: Video: 881 Kbps. Audio: 151 Kbps.
-        Transcoding using 12 CPU cores...
-        Compressed to 7,620 KiB (7,802,745 bytes).
+        Transcoding with libx264...
+        Compressed to 7,754 KiB (7,940,569 bytes).
 
-Finished at 08/02/2024 03:09:47 in 11.1135412 seconds after 1 pass.
+Finished at 09/10/2025 18:34:23 in 11.9665874 seconds after 1 pass.
 ```

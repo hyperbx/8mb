@@ -1,5 +1,6 @@
 # 8mb PowerShell
 # Written by Hyper, original by Matthew Baggett
+# Powered by FFmpeg, support them here: https://ffmpeg.org/donations.html
 
 param
 (
@@ -15,10 +16,137 @@ param
     [switch]$NoAudioTrackMerge
 )
 
-$isAudioTrackMerge = !$NoAudioTrackMerge
+########################################
+#                PATHS                 #
+########################################
 
+$config  = "${PSScriptRoot}\8mb.ini"
 $ffmpeg  = "${PSScriptRoot}\ffmpeg.exe"
 $ffprobe = "${PSScriptRoot}\ffprobe.exe"
+
+########################################
+#            INI OPERATIONS            #
+########################################
+
+function ReadIni([string]$path)
+{
+    $result = @{}
+
+    if (!(Test-Path $path))
+    {
+        return $result
+    }
+
+    $section = ''
+    $result[$section] = @{}
+
+    Get-Content $path | ForEach-Object {
+    #
+        $line = $_.Trim()
+
+        # Read section.
+        if ($line -match '^\[(.+)\]$')
+        {
+            $section = $matches[1]
+
+            if (!$result.ContainsKey($section))
+            {
+                $result[$section] = @{}
+            }
+
+            return
+        }
+
+        # Skip comments.
+        if ($line -match '^(;|#)')
+        {
+            return
+        }
+
+        # Skip inline comments.
+        if ($line -match '^(.*?)((?<!")\s*(;|#).*)?$')
+        {
+            $line = $matches[1].Trim()
+        }
+
+        # Read value.
+        if ($line -match '^(.*?)=(.*)$')
+        {
+            $key = $matches[1].Trim()
+            $value = $matches[2].Trim()
+
+            if ($value -match '^"(.*)"$')
+            {
+                $value = $matches[1]
+            }
+
+            $result[$section][$key] = $value
+        }
+    }
+
+    return $result
+}
+
+function ParseIniValue([string]$value, $defaultValue)
+{
+    if ($defaultValue -is [string])
+    {
+        return $value
+    }
+    elseif ($defaultValue -is [int])
+    {
+        $result = 0
+
+        if ([int]::TryParse($value, [ref]$result))
+        {
+            return $result
+        }
+    }
+    elseif ($defaultValue -is [double])
+    {
+        $result = 0.0
+
+        if ([double]::TryParse($value, [ref]$result))
+        {
+            return $result
+        }
+    }
+
+    return $defaultValue
+}
+
+function GetIniField([hashtable]$ini, [string]$section, [string]$key, $defaultValue)
+{
+    if (!$ini.ContainsKey($section))
+    {
+        return $defaultValue
+    }
+
+    if (!$ini[$section].ContainsKey($key))
+    {
+        return $defaultValue
+    }
+
+    return ParseIniValue $ini[$section][$key] $defaultValue
+}
+
+########################################
+#            CONFIGURATION             #
+########################################
+
+$ini = ReadIni $config
+
+# General
+$checkForUpdates = GetIniField $ini "General" "CheckForUpdates" 1
+$useHardwareAcceleration = GetIniField $ini "General" "UseHardwareAcceleration" 1
+
+# Encode
+$audioBitrateMinKbps = GetIniField $ini "Encode" "AudioBitrateMinKbps" 64
+
+# Arguments
+$isAudioTrackMerge = !$NoAudioTrackMerge
+
+########################################
 
 function Refresh()
 {
@@ -44,8 +172,6 @@ function Leave([int32]$exitCode = 0)
     exit $exitCode
 }
 
-# Check for updates to the script.
-# This is probably a bit of a stretch existing for this thing.
 function CheckForUpdates()
 {
     if (!(Test-Connection -ComputerName "github.com" -Count 1 -Quiet))
@@ -111,7 +237,7 @@ function CheckForUpdates()
     PromptUpdate
 }
 
-if (!$NoUpdates)
+if ($checkForUpdates -and !$NoUpdates)
 {
     CheckForUpdates
 }
@@ -142,6 +268,12 @@ if (!(Test-Path $ffprobe))
         echo "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory."
         Leave -1
     }
+}
+
+if (!$Source)
+{
+    echo "No source file provided."
+    Leave -1
 }
 
 if (!(Test-Path $Source))
@@ -228,6 +360,7 @@ function GetSourceFPS()
 function GetSourceResolution()
 {
     [string]$result = & $ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of json $Source
+
     $json = ConvertFrom-Json $result
 
     return ($json.streams[0].width, $json.streams[0].height)
@@ -254,13 +387,57 @@ function GetSourceResolutionScaled()
     return @($width, $height)
 }
 
+function GetHardwareCodec()
+{
+    $result = "libx264"
+    $gpus = Get-CimInstance Win32_VideoController
+
+    foreach ($gpu in $gpus)
+    {
+        $name = $gpu.Name
+
+        if ($name -match "NVIDIA")
+        {
+            $result = "h264_nvenc"
+            break
+        }
+        elseif ($name -match "AMD")
+        {
+            $result = "h264_amf"
+            break
+        }
+        elseif ($name -match "Intel")
+        {
+            $result = "h264_qsv"
+            break
+        }
+    }
+
+    return $result
+}
+
 function Transcode([uint64]$videoBitrate, [uint64]$audioBitrate)
 {
     [uint32]$width, [uint32]$height = (GetSourceResolutionScaled) -split ','
 
+    if ($useHardwareAcceleration)
+    {
+        $videoCodec = GetHardwareCodec
+        $videoDecodeParams = @("-hwaccel", "auto")
+    }
+    else
+    {
+        $videoCodec = "libx264"
+        $videoDecodeParams = @()
+    }
+
+    echo "Transcoding with ${videoCodec}..."
+
     $audioParams = @()
-    $audioTrackCount  = GetSourceAudioTrackCount
-    if ($audioTrackCount -gt 0) {
+    $audioTrackCount = GetSourceAudioTrackCount
+
+    if ($audioTrackCount -gt 0)
+    {
         $audioMergeFilter = ""
         
         # Create complex filter for merging all audio tracks.
@@ -277,12 +454,15 @@ function Transcode([uint64]$videoBitrate, [uint64]$audioBitrate)
     & $ffmpeg -y `
               -hide_banner `
               -loglevel error `
+              @videoDecodeParams `
               -i $Source `
-              -cpu-used [Environment]::ProcessorCount `
-              $audioParams `
+              @audioParams `
               -map 0:v `
-              -filter:v "fps=${FPS},scale=${width}:${height}:flags=lanczos" `
+              -vf "fps=${FPS},scale=${width}:${height}:flags=lanczos" `
+              -c:v $videoCodec `
               -b:v $videoBitrate `
+              -maxrate $videoBitrate `
+              -bufsize ($videoBitrate * 2) `
               -c:a aac `
               -b:a $audioBitrate `
               $Destination
@@ -507,8 +687,16 @@ $pass = 0
 $factor = 0
 $isReachedOptimalCompression = 0
 
-# Compute destination bitrate based on compression ratio of target size, with a minimum of 64 Kbps.
-$destAudioBitrate = (65535 + ((GetSourceAudioBitrate) - 65535) * $destSizeBytes / $sourceSizeBytes) * (GetSourceAudioTrackCount)
+# Use source audio bitrate.
+$srcAudioBitrate = GetSourceAudioBitrate
+$destAudioBitrate = $srcAudioBitrate
+
+if ($audioBitrateMinKbps -gt 0)
+{
+    # Scale audio bitrate to user minimum.
+    $audioBitrateMin = $audioBitrateMinKbps * 1024
+    $destAudioBitrate = ($audioBitrateMin + ((GetSourceAudioBitrate) - $audioBitrateMin) * $destSizeBytes / $sourceSizeBytes) * (GetSourceAudioTrackCount)
+}
 
 # Precompute the destination bitrate and subtract the audio bitrate
 # to get a closer estimate and require fewer attempts to transcode.
@@ -541,8 +729,7 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
         break
     }
 
-    echo "$passPrefix Video: ${destVideoBitrateF}. Audio: ${destAudioBitrateF}."
-    echo "$passPrefixBlank Transcoding using $([Environment]::ProcessorCount) CPU cores..."
+    Write-Host -NoNewLine "$passPrefix Video: ${destVideoBitrateF}. Audio: ${destAudioBitrateF}.`n${passPrefixBlank} "
 
     Transcode $destVideoBitrate $destAudioBitrate
 
