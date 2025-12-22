@@ -179,7 +179,7 @@ function CheckForUpdates()
         return
     }
     
-    $response = Invoke-WebRequest -Uri "https://raw.githubusercontent.com/hyperbx/8mb/main/8mb.ps1"
+    $response = Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/hyperbx/8mb/main/8mb.ps1"
 
     $currentScript = [System.IO.File]::ReadAllText($PSCommandPath)
     $remoteScript  = $response.Content
