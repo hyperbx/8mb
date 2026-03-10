@@ -312,15 +312,40 @@ function GetDestinationSize()
 # Gets the total bitrate of all audio tracks in the source file.
 function GetSourceAudioBitrate()
 {
+    $isCBR = $true
+
     $bitrates = & $ffprobe -v error `
                            -select_streams a `
                            -show_entries stream=bit_rate `
                            -of default=noprint_wrappers=1:nokey=1 `
                            $Source
 
-    $bitrates = $bitrates -split "`n" | ForEach-Object { [uint64]$_ }
+    # VBR codecs like Opus/Vorbis return N/A here.
+    if ($bitrates -eq "N/A")
+    {
+        $isCBR = $false
+    }
 
-    return ($bitrates | Measure-Object -Sum).Sum
+    if ($isCBR)
+    {
+        return ($bitrates | Measure-Object -Sum).Sum
+    }
+    else
+    {
+        $duration = GetSourceDuration
+
+        # Compute VBR bitrate from packet sizes.
+        $packetSizes = & $ffprobe -v error `
+                                  -select_streams a `
+                                  -show_entries packet=size `
+                                  -of default=noprint_wrappers=1:nokey=1 `
+                                  $Source
+
+        $packetSizes = $packetSizes | ForEach-Object { [int]$_ }
+        $totalBytes  = ($packetSizes | Measure-Object -Sum).Sum
+
+        return ($totalBytes * 8) / $duration
+    }
 }
 
 # Gets the total number of audio tracks in the source file.
@@ -481,7 +506,7 @@ function Transcode([uint64]$videoBitrate, [uint64]$audioBitrate)
         $videoDecoderParams = @("-hwaccel", "auto")
     }
 
-    $audioEncoderParams = @()
+    $audioDecoderParams = @()
     $audioTrackCount = GetSourceAudioTrackCount
 
     if ($audioTrackCount -gt 0)
@@ -496,7 +521,7 @@ function Transcode([uint64]$videoBitrate, [uint64]$audioBitrate)
         
         $audioMergeFilter += "amerge=inputs=${audioTrackCount}[aout]"
         
-        $audioEncoderParams = @("-filter_complex", $audioMergeFilter, "-map", "`"[aout]`"")
+        $audioDecoderParams = @("-filter_complex", $audioMergeFilter, "-map", "[aout]")
     }
 
     & $ffmpeg -y `
@@ -504,7 +529,7 @@ function Transcode([uint64]$videoBitrate, [uint64]$audioBitrate)
               -loglevel error `
               @videoDecoderParams `
               -i $Source `
-              @audioEncoderParams `
+              @audioDecoderParams `
               -map 0:v `
               -vf "fps=${FPS},scale=${width}:${height}:flags=lanczos" `
               @videoEncoderParams `
@@ -742,7 +767,7 @@ if ($audioBitrateMinKbps -gt 0)
 {
     # Scale audio bitrate to user minimum.
     $audioBitrateMin = $audioBitrateMinKbps * 1024
-    $destAudioBitrate = ($audioBitrateMin + ((GetSourceAudioBitrate) - $audioBitrateMin) * $destSizeBytes / $sourceSizeBytes) * (GetSourceAudioTrackCount)
+    $destAudioBitrate = ($audioBitrateMin + ($srcAudioBitrate - $audioBitrateMin) * $destSizeBytes / $sourceSizeBytes) * (GetSourceAudioTrackCount)
 }
 
 # Precompute the destination bitrate and subtract the audio bitrate
