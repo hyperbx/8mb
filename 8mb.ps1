@@ -757,7 +757,6 @@ $tolerance = 10
 $toleranceThreshold = 1 + ($tolerance / 100)
 $pass = 0
 $factor = 0
-$isReachedOptimalCompression = 0
 
 # Use source audio bitrate.
 $srcAudioBitrate = GetSourceAudioBitrate
@@ -773,6 +772,7 @@ if ($audioBitrateMinKbps -gt 0)
 # Precompute the destination bitrate and subtract the audio bitrate
 # to get a closer estimate and require fewer attempts to transcode.
 $destVideoBitrate = [Math]::Max($destAudioBitrate, ($destSizeBytes * 8) / $duration) - $destAudioBitrate
+$lastVideoBitrate = 0
 
 while ($factor -gt $toleranceThreshold -or $factor -lt 1)
 {
@@ -784,22 +784,31 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
         $factor = 1
     }
 
+    $passPrefix      = "Pass ${pass}:"
+    $passPrefixBlank = ' ' * $passPrefix.Length
+
     # Multiply bitrate by factor to increase/decrease file size on further passes.
     $destVideoBitrate = [Math]::Round($destVideoBitrate * $factor)
 
-    $destVideoBitrateF = "$(($destVideoBitrate / 1024).ToString("N0")) Kbps"
-    $destAudioBitrateF = "$(($destAudioBitrate / 1024).ToString("N0")) Kbps"
+    # Break if transcoding with the same parameters.
+    if ([Math]::Round($destVideoBitrate / 1024) -eq $lastVideoBitrate)
+    {
+        Write-Host "$passPrefix Cannot compress video further, aborting..." -ForegroundColor Red
+        break
+    }
 
-    $passPrefix      = "Pass ${pass}:"
-    $passPrefixBlank = ' ' * $passPrefix.Length
+    $lastVideoBitrate = [Math]::Round($destVideoBitrate / 1024)
 
     # ffmpeg doesn't seem to like bitrates lower than 1 Kbps, so abort if this ever happens.
     # 0 audio bitrate means there is no audio stream.
     if ($destVideoBitrate -le 1024 -or ($destAudioBitrate -ne 0 -and $destAudioBitrate -le 1024))
     {
-        Write-Host "$passPrefix Attempted to transcode below 1 Kbps, aborting..."
+        Write-Host "$passPrefix Attempted to transcode below 1 Kbps, aborting..." -ForegroundColor Red
         break
     }
+
+    $destVideoBitrateF = "$(($destVideoBitrate / 1024).ToString("N0")) Kbps"
+    $destAudioBitrateF = "$(($destAudioBitrate / 1024).ToString("N0")) Kbps"
 
     Write-Host -NoNewLine "$passPrefix Video: ${destVideoBitrateF}. Audio: ${destAudioBitrateF}.`n${passPrefixBlank} "
 
@@ -807,27 +816,16 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
 
     if (!(Test-Path -LiteralPath $Destination))
     {
-        Write-Host "$passPrefixBlank Failed to encode video."
+        Write-Host "$passPrefixBlank Failed to encode video." -ForegroundColor Red
         Leave -1
         break
-    }
-
-    # Signal to break if transcoded to the same file size.
-    if ($newSizeBytes -eq (Get-Item -LiteralPath $Destination).Length)
-    {
-        $isReachedOptimalCompression = 1
     }
 
     $newSizeBytes = (Get-Item -LiteralPath $Destination).Length
     $percent = (100 / $destSizeBytes) * $newSizeBytes
     $factor = (100 / $percent)
     
-    Write-Host "$passPrefixBlank Compressed to $(($newSizeBytes / 1024).ToString("N0")) KiB ($($newSizeBytes.ToString("N0")) bytes)."
-
-    if ($isReachedOptimalCompression)
-    {
-        break
-    }
+    Write-Host "$passPrefixBlank Compressed to $(($newSizeBytes / 1024).ToString("N0")) KiB ($($newSizeBytes.ToString("N0")) bytes)." -ForegroundColor DarkGreen
 }
 
 $passPlural = "passes"
