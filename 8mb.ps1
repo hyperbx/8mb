@@ -780,6 +780,13 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
 
     Transcode $destVideoBitrate $destAudioBitrate
 
+    if (!(Test-Path -LiteralPath $Destination))
+    {
+        Write-Host "$passPrefixBlank Failed to encode video."
+        Leave -1
+        break
+    }
+
     # Signal to break if transcoded to the same file size.
     if ($newSizeBytes -eq (Get-Item -LiteralPath $Destination).Length)
     {
