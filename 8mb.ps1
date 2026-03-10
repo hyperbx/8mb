@@ -387,29 +387,70 @@ function GetSourceResolutionScaled()
     return @($width, $height)
 }
 
-function GetHardwareCodec()
+# Gets the video codec of the source file.
+function GetSourceVideoCodec()
 {
-    $result = "libx264"
+    [string]$result = & $ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of json $Source
+
+    $json = ConvertFrom-Json $result
+
+    return $json.streams[0].codec_name
+}
+
+function GetEncoder()
+{
     $gpus = Get-CimInstance Win32_VideoController
 
-    foreach ($gpu in $gpus)
-    {
-        $name = $gpu.Name
+    $sourceVideoCodec = (GetSourceVideoCodec).ToLower()
 
-        if ($name -match "NVIDIA")
+    if ($sourceVideoCodec.Contains("hevc"))
+    {
+        if ($useHardwareAcceleration)
         {
-            $result = "h264_nvenc"
-            break
+            $result = "hevc"
         }
-        elseif ($name -match "AMD")
+        else
         {
-            $result = "h264_amf"
-            break
+            return "libx265"
         }
-        elseif ($name -match "Intel")
+    }
+    elseif ($sourceVideoCodec.Contains("h264"))
+    {
+        if ($useHardwareAcceleration)
         {
-            $result = "h264_qsv"
-            break
+            $result = "h264"
+        }
+        else
+        {
+            return "libx264"
+        }
+    }
+    else
+    {
+        return ""
+    }
+
+    if ($useHardwareAcceleration)
+    {
+        foreach ($gpu in $gpus)
+        {
+            $name = $gpu.Name
+
+            if ($name -match "NVIDIA")
+            {
+                $result += "_nvenc"
+                break
+            }
+            elseif ($name -match "AMD")
+            {
+                $result += "_amf"
+                break
+            }
+            elseif ($name -match "Intel")
+            {
+                $result += "_qsv"
+                break
+            }
         }
     }
 
@@ -420,20 +461,27 @@ function Transcode([uint64]$videoBitrate, [uint64]$audioBitrate)
 {
     [uint32]$width, [uint32]$height = (GetSourceResolutionScaled) -split ','
 
-    if ($useHardwareAcceleration)
+    $videoEncoder = GetEncoder
+    $videoEncoderParams = @()
+    $videoDecoderParams = @()
+
+    if ([string]::IsNullOrEmpty($videoEncoder))
     {
-        $videoCodec = GetHardwareCodec
-        $videoDecodeParams = @("-hwaccel", "auto")
+        Write-Host "Transcoding..."
     }
     else
     {
-        $videoCodec = "libx264"
-        $videoDecodeParams = @()
+        $videoEncoderParams = @("-c:v", $videoEncoder)
+
+        Write-Host "Transcoding with ${videoEncoder}..."
     }
 
-    echo "Transcoding with ${videoCodec}..."
+    if ($useHardwareAcceleration)
+    {
+        $videoDecoderParams = @("-hwaccel", "auto")
+    }
 
-    $audioParams = @()
+    $audioEncoderParams = @()
     $audioTrackCount = GetSourceAudioTrackCount
 
     if ($audioTrackCount -gt 0)
@@ -448,18 +496,18 @@ function Transcode([uint64]$videoBitrate, [uint64]$audioBitrate)
         
         $audioMergeFilter += "amerge=inputs=${audioTrackCount}[aout]"
         
-        $audioParams = @("-filter_complex", $audioMergeFilter, "-map", "`"[aout]`"")
+        $audioEncoderParams = @("-filter_complex", $audioMergeFilter, "-map", "`"[aout]`"")
     }
 
     & $ffmpeg -y `
               -hide_banner `
               -loglevel error `
-              @videoDecodeParams `
+              @videoDecoderParams `
               -i $Source `
-              @audioParams `
+              @audioEncoderParams `
               -map 0:v `
               -vf "fps=${FPS},scale=${width}:${height}:flags=lanczos" `
-              -c:v $videoCodec `
+              @videoEncoderParams `
               -b:v $videoBitrate `
               -maxrate $videoBitrate `
               -bufsize ($videoBitrate * 2) `
@@ -714,8 +762,8 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     # Multiply bitrate by factor to increase/decrease file size on further passes.
     $destVideoBitrate = [Math]::Round($destVideoBitrate * $factor)
 
-    $destAudioBitrateF = "$(($destAudioBitrate / 1024).ToString("N0")) Kbps"
     $destVideoBitrateF = "$(($destVideoBitrate / 1024).ToString("N0")) Kbps"
+    $destAudioBitrateF = "$(($destAudioBitrate / 1024).ToString("N0")) Kbps"
 
     $passPrefix      = "Pass ${pass}:"
     $passPrefixBlank = ' ' * $passPrefix.Length
@@ -724,7 +772,7 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     # 0 audio bitrate means there is no audio stream.
     if ($destVideoBitrate -le 1024 -or ($destAudioBitrate -ne 0 -and $destAudioBitrate -le 1024))
     {
-        echo "$passPrefix Attempted to transcode below 1 Kbps, aborting..."
+        Write-Host "$passPrefix Attempted to transcode below 1 Kbps, aborting..."
         break
     }
 
