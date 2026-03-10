@@ -151,8 +151,9 @@ $isAudioTrackMerge = !$NoAudioTrackMerge
 function Refresh()
 {
     Clear-Host
-    Write-Host "8mb PowerShell"
-    Write-Host ""
+    Write-Host -NoNewLine "8mb "
+    Write-Host "PowerShell" -ForegroundColor Blue
+    Write-Host
 }
 
 Refresh
@@ -426,9 +427,9 @@ function GetEncoder()
 {
     $gpus = Get-CimInstance Win32_VideoController
 
-    $sourceVideoCodec = (GetSourceVideoCodec).ToLower()
+    $srcVideoCodec = (GetSourceVideoCodec).ToLower()
 
-    if ($sourceVideoCodec.Contains("hevc"))
+    if ($srcVideoCodec.Contains("hevc"))
     {
         if ($useHardwareAcceleration)
         {
@@ -439,7 +440,7 @@ function GetEncoder()
             return "libx265"
         }
     }
-    elseif ($sourceVideoCodec.Contains("h264"))
+    elseif ($srcVideoCodec.Contains("h264"))
     {
         if ($useHardwareAcceleration)
         {
@@ -605,12 +606,12 @@ function PromptDestinationScale()
 # Prompt the user for the destination frame rate.
 function PromptDestinationFPS()
 {
-    $sourceFPS = GetSourceFPS
-    $input = Read-Host -Prompt "Enter destination FPS [default: ${sourceFPS}]"
+    $srcFPS = GetSourceFPS
+    $input = Read-Host -Prompt "Enter destination FPS [default: ${srcFPS}]"
 
     if ([string]::IsNullOrEmpty($input))
     {
-        return $sourceFPS
+        return $srcFPS
     }
 
     [float]$result = 0
@@ -690,17 +691,17 @@ if ($Scale -le 0)
     Leave -1
 }
 
-$sourceFPS = GetSourceFPS
+$srcFPS = GetSourceFPS
 
 if ($FPS -le 0)
 {
     # Ensure the destination frame rate is greater than zero.
-    $FPS = $sourceFPS
+    $FPS = $srcFPS
 }
 else
 {
     # Ensure the destination frame rate is less than the source frame rate.
-    $FPS = [Math]::Min($FPS, $sourceFPS)
+    $FPS = [Math]::Min($FPS, $srcFPS)
 }
 
 # Create temporary destination file name, if none was provided.
@@ -710,12 +711,12 @@ if ([string]::IsNullOrEmpty($Destination))
         "$([System.IO.Path]::GetFileNameWithoutExtension($Source)).${Size}$($SizeUnits.ToLower()).mp4")
 }
 
-$sourceSizeBytes = (Get-Item -LiteralPath $Source).Length
-$destSizeBytes = GetDestinationSize
+$srcSizeBytes = (Get-Item -LiteralPath $Source).Length
+$dstSizeBytes = GetDestinationSize
 $duration = GetSourceDuration
 
 # Throw if the destination size is greater than the source size.
-if ($destSizeBytes -gt $sourceSizeBytes)
+if ($dstSizeBytes -gt $srcSizeBytes)
 {
     Write-Host "The destination size cannot be larger than the source size."
     Leave -1
@@ -728,30 +729,27 @@ if ($duration -le 0)
     Leave -1
 }
 
-function PrintInfo([string]$path, [uint64]$sizeBytes, [float]$scale, [float]$fps)
+function PrintInfo([string]$section, [string]$path, [uint64]$sizeBytes, [float]$scale, [float]$fps)
 {
     [uint32]$width, [uint32]$height = (GetSourceResolutionScaled) -split ','
 
-    Write-Host "Path -- : $path"
-    Write-Host "Size -- : $(($sizeBytes / 1024).ToString("N0")) KiB ($($sizeBytes.ToString("N0")) bytes)"
-    Write-Host "Scale - : $scale (${width}x${height})"
-    Write-Host "FPS --- : $fps FPS"
+    Write-Host -NoNewLine $section
+    Write-Host ('-' * (64 - $section.Length))
+    Write-Host
+    Write-Host "> Path   ----  $path"
+    Write-Host "> Size   ----  $(($sizeBytes / 1024).ToString("N0")) KiB ($($sizeBytes.ToString("N0")) bytes)"
+    Write-Host "> Scale  ----  $scale (${width}x${height})"
+    Write-Host "> FPS    ----  $fps FPS"
+    Write-Host
 }
 
-Write-Host "Source ==================================="
-Write-Host ""
-PrintInfo $Source $sourceSizeBytes 1.0 $sourceFPS
-Write-Host ""
-
-Write-Host "Destination =============================="
-Write-Host ""
-PrintInfo $Destination $destSizeBytes $Scale $FPS
+PrintInfo "Source         " $Source $srcSizeBytes 1.0 $srcFPS
+PrintInfo "Destination    " $Destination $dstSizeBytes $Scale $FPS
 
 $startTime = Get-Date
 
-Write-Host ""
 Write-Host "Starting transcode at ${startTime}. Enter CTRL+C to cancel."
-Write-Host ""
+Write-Host
 
 $tolerance = 10
 $toleranceThreshold = 1 + ($tolerance / 100)
@@ -760,18 +758,18 @@ $factor = 0
 
 # Use source audio bitrate.
 $srcAudioBitrate = GetSourceAudioBitrate
-$destAudioBitrate = $srcAudioBitrate
+$dstAudioBitrate = $srcAudioBitrate
 
 if ($audioBitrateMinKbps -gt 0)
 {
     # Scale audio bitrate to user minimum.
     $audioBitrateMin = $audioBitrateMinKbps * 1024
-    $destAudioBitrate = ($audioBitrateMin + ($srcAudioBitrate - $audioBitrateMin) * $destSizeBytes / $sourceSizeBytes) * (GetSourceAudioTrackCount)
+    $dstAudioBitrate = ($audioBitrateMin + ($srcAudioBitrate - $audioBitrateMin) * $dstSizeBytes / $srcSizeBytes) * (GetSourceAudioTrackCount)
 }
 
 # Precompute the destination bitrate and subtract the audio bitrate
 # to get a closer estimate and require fewer attempts to transcode.
-$destVideoBitrate = [Math]::Max($destAudioBitrate, ($destSizeBytes * 8) / $duration) - $destAudioBitrate
+$dstVideoBitrate = [Math]::Max($dstAudioBitrate, ($dstSizeBytes * 8) / $duration) - $dstAudioBitrate
 $lastVideoBitrate = 0
 
 while ($factor -gt $toleranceThreshold -or $factor -lt 1)
@@ -788,31 +786,31 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     $passPrefixBlank = ' ' * $passPrefix.Length
 
     # Multiply bitrate by factor to increase/decrease file size on further passes.
-    $destVideoBitrate = [Math]::Round($destVideoBitrate * $factor)
+    $dstVideoBitrate = [Math]::Round($dstVideoBitrate * $factor)
 
     # Break if transcoding with the same parameters.
-    if ([Math]::Round($destVideoBitrate / 1024) -eq $lastVideoBitrate)
+    if ([Math]::Round($dstVideoBitrate / 1024) -eq $lastVideoBitrate)
     {
         Write-Host "$passPrefix Cannot compress video further, aborting..." -ForegroundColor Red
         break
     }
 
-    $lastVideoBitrate = [Math]::Round($destVideoBitrate / 1024)
+    $lastVideoBitrate = [Math]::Round($dstVideoBitrate / 1024)
 
     # ffmpeg doesn't seem to like bitrates lower than 1 Kbps, so abort if this ever happens.
     # 0 audio bitrate means there is no audio stream.
-    if ($destVideoBitrate -le 1024 -or ($destAudioBitrate -ne 0 -and $destAudioBitrate -le 1024))
+    if ($dstVideoBitrate -le 1024 -or ($dstAudioBitrate -ne 0 -and $dstAudioBitrate -le 1024))
     {
         Write-Host "$passPrefix Attempted to transcode below 1 Kbps, aborting..." -ForegroundColor Red
         break
     }
 
-    $destVideoBitrateF = "$(($destVideoBitrate / 1024).ToString("N0")) Kbps"
-    $destAudioBitrateF = "$(($destAudioBitrate / 1024).ToString("N0")) Kbps"
+    $dstVideoBitrateF = "$(($dstVideoBitrate / 1024).ToString("N0")) Kbps"
+    $dstAudioBitrateF = "$(($dstAudioBitrate / 1024).ToString("N0")) Kbps"
 
-    Write-Host -NoNewLine "$passPrefix Video: ${destVideoBitrateF}. Audio: ${destAudioBitrateF}.`n${passPrefixBlank} "
+    Write-Host -NoNewLine "$passPrefix Video: ${dstVideoBitrateF}. Audio: ${dstAudioBitrateF}.`n${passPrefixBlank} "
 
-    Transcode $destVideoBitrate $destAudioBitrate
+    Transcode $dstVideoBitrate $dstAudioBitrate
 
     if (!(Test-Path -LiteralPath $Destination))
     {
@@ -822,7 +820,7 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     }
 
     $newSizeBytes = (Get-Item -LiteralPath $Destination).Length
-    $percent = (100 / $destSizeBytes) * $newSizeBytes
+    $percent = (100 / $dstSizeBytes) * $newSizeBytes
     $factor = (100 / $percent)
     
     Write-Host "$passPrefixBlank Compressed to $(($newSizeBytes / 1024).ToString("N0")) KiB ($($newSizeBytes.ToString("N0")) bytes)." -ForegroundColor DarkGreen
