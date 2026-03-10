@@ -32,7 +32,7 @@ function ReadIni([string]$path)
 {
     $result = @{}
 
-    if (!(Test-Path $path))
+    if (!(Test-Path -LiteralPath $path))
     {
         return $result
     }
@@ -242,7 +242,7 @@ if ($checkForUpdates -and !$NoUpdates)
     CheckForUpdates
 }
 
-if (!(Test-Path $ffmpeg))
+if (!(Test-Path -LiteralPath $ffmpeg))
 {
     try
     {
@@ -256,7 +256,7 @@ if (!(Test-Path $ffmpeg))
     }
 }
 
-if (!(Test-Path $ffprobe))
+if (!(Test-Path -LiteralPath $ffprobe))
 {
     try
     {
@@ -276,7 +276,7 @@ if (!$Source)
     Leave -1
 }
 
-if (!(Test-Path $Source))
+if (!(Test-Path -LiteralPath $Source))
 {
     echo "File not found: $Source"
     Leave -1
@@ -638,7 +638,7 @@ if ([string]::IsNullOrEmpty($Destination))
         "$([System.IO.Path]::GetFileNameWithoutExtension($Source)).${Size}$($SizeUnits.ToLower()).mp4")
 }
 
-$sourceSizeBytes = (Get-Item $Source).Length
+$sourceSizeBytes = (Get-Item -LiteralPath $Source).Length
 $destSizeBytes = GetDestinationSize
 $duration = GetSourceDuration
 
@@ -734,12 +734,12 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     Transcode $destVideoBitrate $destAudioBitrate
 
     # Signal to break if transcoded to the same file size.
-    if ($newSizeBytes -eq (Get-Item $Destination).Length)
+    if ($newSizeBytes -eq (Get-Item -LiteralPath $Destination).Length)
     {
         $isReachedOptimalCompression = 1
     }
 
-    $newSizeBytes = (Get-Item $Destination).Length
+    $newSizeBytes = (Get-Item -LiteralPath $Destination).Length
     $percent = (100 / $destSizeBytes) * $newSizeBytes
     $factor = (100 / $percent)
     
