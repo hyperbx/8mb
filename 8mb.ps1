@@ -151,8 +151,8 @@ $isAudioTrackMerge = !$NoAudioTrackMerge
 function Refresh()
 {
     Clear-Host
-    echo "8mb PowerShell"
-    echo ""
+    Write-Host "8mb PowerShell"
+    Write-Host ""
 }
 
 Refresh
@@ -164,8 +164,8 @@ function Leave([int32]$exitCode = 0)
         exit $exitCode
     }
 
-    echo ""
-    echo "Press any key to exit..."
+    Write-Host
+    Write-Host "Press any key to exit..."
 
     [System.Console]::ReadKey($true)
 
@@ -250,8 +250,8 @@ if (!(Test-Path -LiteralPath $ffmpeg))
     }
     catch
     {
-        echo "ffmpeg not found!"
-        echo "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory."
+        Write-Host "ffmpeg not found!"
+        Write-Host "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory."
         Leave -1
     }
 }
@@ -264,21 +264,21 @@ if (!(Test-Path -LiteralPath $ffprobe))
     }
     catch
     {
-        echo "ffprobe not found!"
-        echo "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory."
+        Write-Host "ffprobe not found!"
+        Write-Host "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory."
         Leave -1
     }
 }
 
 if (!$Source)
 {
-    echo "No source file provided."
+    Write-Host "No source file provided."
     Leave -1
 }
 
 if (!(Test-Path -LiteralPath $Source))
 {
-    echo "File not found: $Source"
+    Write-Host "File not found: $Source"
     Leave -1
 }
 
@@ -304,7 +304,7 @@ function GetDestinationSize()
         return $Size * 1024 * 1024
     }
 
-    echo "Invalid destination size: $Size $SizeUnits"
+    Write-Host "Invalid destination size: $Size $SizeUnits"
 
     Leave -1
 }
@@ -594,27 +594,26 @@ if ($Prompt)
     $Scale     = PromptDestinationScale
     $FPS       = PromptDestinationFPS
 
-    echo ""
+    Write-Host
 }
 
 if ($Prompt -or $Shell)
 {
     $isAudioTrackMerge = PromptDestinationAudioTracks
-
     Refresh
 }
 
 # Throw if the destination size is less than or equal to zero.
 if ($Size -le 0)
 {
-    echo "Invalid destination size: $Size $SizeUnits"
+    Write-Host "Invalid destination size: $Size $SizeUnits"
     Leave -1
 }
 
 # Throw if the destination scale is less than or equal to zero.
 if ($Scale -le 0)
 {
-    echo "Invalid destination scale: $Scale"
+    Write-Host "Invalid destination scale: $Scale"
     Leave -1
 }
 
@@ -645,14 +644,14 @@ $duration = GetSourceDuration
 # Throw if the destination size is greater than the source size.
 if ($destSizeBytes -gt $sourceSizeBytes)
 {
-    echo "The destination size cannot be larger than the source size."
+    Write-Host "The destination size cannot be larger than the source size."
     Leave -1
 }
 
 # Throw if the video duration is less than or equal to zero.
 if ($duration -le 0)
 {
-    echo "Invalid video duration: $duration"
+    Write-Host "Invalid video duration: $duration"
     Leave -1
 }
 
@@ -660,26 +659,26 @@ function PrintInfo([string]$path, [uint64]$sizeBytes, [float]$scale, [float]$fps
 {
     [uint32]$width, [uint32]$height = (GetSourceResolutionScaled) -split ','
 
-    echo "Path -- : $path"
-    echo "Size -- : $(($sizeBytes / 1024).ToString("N0")) KiB ($($sizeBytes.ToString("N0")) bytes)"
-    echo "Scale - : $scale (${width}x${height})"
-    echo "FPS --- : $fps FPS"
+    Write-Host "Path -- : $path"
+    Write-Host "Size -- : $(($sizeBytes / 1024).ToString("N0")) KiB ($($sizeBytes.ToString("N0")) bytes)"
+    Write-Host "Scale - : $scale (${width}x${height})"
+    Write-Host "FPS --- : $fps FPS"
 }
 
-echo "Source ==================================="
-echo ""
+Write-Host "Source ==================================="
+Write-Host ""
 PrintInfo $Source $sourceSizeBytes 1.0 $sourceFPS
-echo ""
+Write-Host ""
 
-echo "Destination =============================="
-echo ""
+Write-Host "Destination =============================="
+Write-Host ""
 PrintInfo $Destination $destSizeBytes $Scale $FPS
 
 $startTime = Get-Date
 
-echo ""
-echo "Starting transcode at ${startTime}. Enter CTRL+C to cancel."
-echo ""
+Write-Host ""
+Write-Host "Starting transcode at ${startTime}. Enter CTRL+C to cancel."
+Write-Host ""
 
 $tolerance = 10
 $toleranceThreshold = 1 + ($tolerance / 100)
@@ -743,7 +742,7 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     $percent = (100 / $destSizeBytes) * $newSizeBytes
     $factor = (100 / $percent)
     
-    echo "$passPrefixBlank Compressed to $(($newSizeBytes / 1024).ToString("N0")) KiB ($($newSizeBytes.ToString("N0")) bytes)."
+    Write-Host "$passPrefixBlank Compressed to $(($newSizeBytes / 1024).ToString("N0")) KiB ($($newSizeBytes.ToString("N0")) bytes)."
 
     if ($isReachedOptimalCompression)
     {
@@ -761,8 +760,8 @@ if ($pass -eq 1)
 
 $endTime = Get-Date
 
-echo ""
-echo "Finished at $endTime in $(($endTime - $startTime).TotalSeconds) seconds after $pass ${passPlural}."
+Write-Host ""
+Write-Host "Finished at $endTime in $(($endTime - $startTime).TotalSeconds) seconds after $pass ${passPlural}."
 
 Leave
 
