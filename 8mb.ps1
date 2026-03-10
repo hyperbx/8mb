@@ -13,7 +13,10 @@ param
     [switch]$Shell,
     [switch]$Prompt,
     [switch]$NoUpdates,
-    [switch]$NoAudioTrackMerge
+    [switch]$NoAudioTrackMerge,
+    
+    [ValidateSet("All", "Normal", "Progress", "Quiet")] # All - Display FFmpeg output; Normal - Display only 8mb output; Progress - Display only progress percentage; Quiet - Disable output.
+    [string]$Verbosity = "Normal"
 )
 
 ########################################
@@ -147,31 +150,59 @@ $audioBitrateMinKbps = GetIniField $ini "Encode" "AudioBitrateMinKbps" 64
 $isAudioTrackMerge = !$NoAudioTrackMerge
 
 ########################################
+#               LOGGING                #
+########################################
+
+$isQuiet = $Verbosity -eq "Quiet" -or $Verbosity -eq "Progress"
+
+function Print([string]$text = "", [string]$fgColour = "White", [string]$bgColour = "Black", [switch]$noNewLine = $false)
+{
+    if ($isQuiet)
+    {
+        return
+    }
+
+    if ($noNewLine)
+    {
+        Write-Host -NoNewLine $text -BackgroundColor $bgColour -ForegroundColor $fgColour
+    }
+    else
+    {
+        Write-Host $text -BackgroundColor $bgColour -ForegroundColor $fgColour
+    }
+}
 
 function Refresh()
 {
+    if ($isQuiet)
+    {
+        return
+    }
+
     Clear-Host
-    Write-Host -NoNewLine "8mb "
-    Write-Host "PowerShell" -ForegroundColor Blue
-    Write-Host
+    Print "8mb " -noNewLine
+    Print "PowerShell" Blue
+    Print 
 }
 
 Refresh
 
 function Leave([int32]$exitCode = 0)
 {
-    if (!($Shell -or $Prompt))
+    if (!($Shell -or $Prompt) -or $isQuiet)
     {
         exit $exitCode
     }
 
-    Write-Host
-    Write-Host "Press any key to exit..."
+    Print
+    Print "Press any key to exit..."
 
     [System.Console]::ReadKey($true)
 
     exit $exitCode
 }
+
+########################################
 
 function CheckForUpdates()
 {
@@ -200,7 +231,7 @@ function CheckForUpdates()
 
     function PromptUpdate()
     {
-        $result = Read-Host "An update is available, would you like to download it? [Y|N]"
+        $result = $(Print -noNewLine "An update is available, would you like to download it? [Y|N] "; Read-Host)
         $result = $result.ToLower()
 
         if ($result -eq "n")
@@ -238,7 +269,7 @@ function CheckForUpdates()
     PromptUpdate
 }
 
-if ($checkForUpdates -and !$NoUpdates)
+if ($checkForUpdates -and !$NoUpdates -and !$isQuiet)
 {
     CheckForUpdates
 }
@@ -251,8 +282,8 @@ if (!(Test-Path -LiteralPath $ffmpeg))
     }
     catch
     {
-        Write-Host "ffmpeg not found!"
-        Write-Host "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory."
+        Print "FFmpeg not found!" Red
+        Print "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory." Red
         Leave -1
     }
 }
@@ -265,21 +296,21 @@ if (!(Test-Path -LiteralPath $ffprobe))
     }
     catch
     {
-        Write-Host "ffprobe not found!"
-        Write-Host "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory."
+        Print "FFprobe not found!" Red
+        Print "Please download the Windows binary from https://ffbinaries.com/downloads and extract it into the script directory." Red
         Leave -1
     }
 }
 
 if (!$Source)
 {
-    Write-Host "No source file provided."
+    Print "No source file provided." Red
     Leave -1
 }
 
 if (!(Test-Path -LiteralPath $Source))
 {
-    Write-Host "File not found: $Source"
+    Print "File not found: $Source" Red
     Leave -1
 }
 
@@ -305,7 +336,7 @@ function GetDestinationSize()
         return $Size * 1024 * 1024
     }
 
-    Write-Host "Invalid destination size: $Size $SizeUnits"
+    Print "Invalid destination size: $Size $SizeUnits" Red
 
     Leave -1
 }
@@ -315,9 +346,9 @@ function GetSourceAudioBitrate()
 {
     $isCBR = $true
 
-    $bitrates = & $ffprobe -v error `
-                           -select_streams a `
-                           -show_entries stream=bit_rate `
+    $bitrates = & $ffprobe -v error                               `
+                           -select_streams a                      `
+                           -show_entries stream=bit_rate          `
                            -of default=noprint_wrappers=1:nokey=1 `
                            $Source
 
@@ -336,9 +367,9 @@ function GetSourceAudioBitrate()
         $duration = GetSourceDuration
 
         # Compute VBR bitrate from packet sizes.
-        $packetSizes = & $ffprobe -v error `
-                                  -select_streams a `
-                                  -show_entries packet=size `
+        $packetSizes = & $ffprobe -v error                               `
+                                  -select_streams a                      `
+                                  -show_entries packet=size              `
                                   -of default=noprint_wrappers=1:nokey=1 `
                                   $Source
 
@@ -371,15 +402,24 @@ function GetSourceDuration()
 # Gets the frame rate of the source file.
 function GetSourceFPS()
 {
-    $result = & $ffprobe -v error `
-                         -select_streams v `
+    $result = & $ffprobe -v error                               `
+                         -select_streams v                      `
                          -of default=noprint_wrappers=1:nokey=1 `
-                         -show_entries stream=avg_frame_rate `
+                         -show_entries stream=avg_frame_rate    `
                          $Source
 
     $split = $result -split '/'
     
     return [double]$split[0] / [double]$split[1]
+}
+
+# Gets the total number of frames in the source file.
+function GetSourceFrameCount()
+{
+    $srcDuration = [double](GetSourceDuration)
+    $srcFPS = [double](GetSourceFPS)
+
+    return [Math]::Round($srcDuration * $srcFPS)
 }
 
 # Gets the resolution of the source file.
@@ -483,9 +523,30 @@ function GetEncoder()
     return $result
 }
 
-function Transcode([uint64]$videoBitrate, [uint64]$audioBitrate)
+function Transcode([uint64]$videoBitrate, [uint64]$audioBitrate, [int]$passCount)
 {
     [uint32]$width, [uint32]$height = (GetSourceResolutionScaled) -split ','
+
+    $toolParams = @("-y", "-hide_banner")
+
+    if ($Verbosity -eq "All")
+    {
+        $toolParams += @("-loglevel", "info")
+    }
+    elseif ($Verbosity -eq "Normal")
+    {
+        $toolParams += @("-loglevel", "error")
+    }
+    else
+    {
+        $toolParams += @("-loglevel", "quiet")
+    }
+    
+    # Pipe progress statistics to stdout for normal verbosity.
+    if ($Verbosity -ne "All")
+    {
+        $toolParams += @("-nostats", "-progress", "pipe:1")
+    }
 
     $videoEncoder = GetEncoder
     $videoEncoderParams = @()
@@ -493,13 +554,13 @@ function Transcode([uint64]$videoBitrate, [uint64]$audioBitrate)
 
     if ([string]::IsNullOrEmpty($videoEncoder))
     {
-        Write-Host "Transcoding..."
+        Print -noNewLine "Transcoding... "
     }
     else
     {
         $videoEncoderParams = @("-c:v", $videoEncoder)
 
-        Write-Host "Transcoding with ${videoEncoder}..."
+        Print -noNewLine "Transcoding with ${videoEncoder}... "
     }
 
     if ($useHardwareAcceleration)
@@ -525,27 +586,60 @@ function Transcode([uint64]$videoBitrate, [uint64]$audioBitrate)
         $audioDecoderParams = @("-filter_complex", $audioMergeFilter, "-map", "[aout]")
     }
 
-    & $ffmpeg -y `
-              -hide_banner `
-              -loglevel error `
-              @videoDecoderParams `
-              -i $Source `
-              @audioDecoderParams `
-              -map 0:v `
+    $progressTotal = GetSourceFrameCount
+    $progressIteration = 0
+    $progressStr = ""
+
+    & $ffmpeg @toolParams                                             `
+              @videoDecoderParams                                     `
+              -i $Source                                              `
+              @audioDecoderParams                                     `
+              -map 0:v                                                `
               -vf "fps=${FPS},scale=${width}:${height}:flags=lanczos" `
-              @videoEncoderParams `
-              -b:v $videoBitrate `
-              -maxrate $videoBitrate `
-              -bufsize ($videoBitrate * 2) `
-              -c:a aac `
-              -b:a $audioBitrate `
-              $Destination
+              @videoEncoderParams                                     `
+              -b:v $videoBitrate                                      `
+              -maxrate $videoBitrate                                  `
+              -bufsize ($videoBitrate * 2)                            `
+              -c:a aac                                                `
+              -b:a $audioBitrate                                      `
+              $Destination                                            `
+              |                                                       `
+    ForEach-Object                                                    `
+    {
+        if ($_ -match "frame=(\d+)")
+        {
+            $frame = [int]$matches[1]
+            $progress = ($frame / $progressTotal)
+
+            if ($Verbosity -eq "Progress")
+            {
+                # Print just the pass and progress to stdout.
+                Write-Host "${pass}: $($progress.ToString("P1"))"
+            }
+            elseif ($Verbosity -ne "All")
+            {
+                # Update the progress percentage on the same line.
+                if ($progressIteration -gt 0)
+                {
+                    Print ("`b" * $progressStr.Length) -noNewLine
+                }
+                
+                $progressStr = $progress.ToString("P1")
+
+                Print $progressStr -noNewLine
+            }
+        }
+
+        $progressIteration++
+    }
+
+    Print
 }
 
 # Prompt the user for the destination size in either kilobytes or megabytes.
 function PromptDestinationSize()
 {
-    $result = Read-Host -Prompt "Enter destination size"
+    $result = $(Print -noNewLine "Enter destination size: "; Read-Host)
 
     if ([string]::IsNullOrEmpty($result))
     {
@@ -563,7 +657,7 @@ function PromptDestinationSize()
 # Prompt the user for the units for the destination size.
 function PromptDestinationSizeUnits()
 {
-    $result = Read-Host -Prompt "Enter destination size units [KB|KiB|MB|MiB]"
+    $result = $(Print -noNewLine "Enter destination size units [KB|KiB|MB|MiB]: "; Read-Host)
 
     if ([string]::IsNullOrEmpty($result))
     {
@@ -583,7 +677,7 @@ function PromptDestinationSizeUnits()
 # Prompt the user for the destination scale.
 function PromptDestinationScale()
 {
-    $input = Read-Host -Prompt "Enter destination scale [default: 1.0]"
+    $input = $(Print -noNewLine "Enter destination scale [default: 1.0]: "; Read-Host)
 
     if ([string]::IsNullOrEmpty($input))
     {
@@ -592,8 +686,8 @@ function PromptDestinationScale()
 
     [float]$result = 0
     
-    if ([float]::TryParse($input, `
-        [System.Globalization.NumberStyles]::Float, `
+    if ([float]::TryParse($input,                           `
+        [System.Globalization.NumberStyles]::Float,         `
         [System.Globalization.CultureInfo]::CurrentCulture, `
         [ref]$result))
     {
@@ -607,7 +701,7 @@ function PromptDestinationScale()
 function PromptDestinationFPS()
 {
     $srcFPS = GetSourceFPS
-    $input = Read-Host -Prompt "Enter destination FPS [default: ${srcFPS}]"
+    $input = $(Print -noNewLine "Enter destination FPS [default: ${srcFPS}]: "; Read-Host)
 
     if ([string]::IsNullOrEmpty($input))
     {
@@ -616,8 +710,8 @@ function PromptDestinationFPS()
 
     [float]$result = 0
 
-    if ([float]::TryParse($input, `
-        [System.Globalization.NumberStyles]::Float, `
+    if ([float]::TryParse($input,                           `
+        [System.Globalization.NumberStyles]::Float,         `
         [System.Globalization.CultureInfo]::CurrentCulture, `
         [ref]$result))
     {
@@ -645,7 +739,7 @@ function PromptDestinationAudioTracks()
         $itemPlural = "it"
     }
 
-    $result = Read-Host -Prompt "Found $($audioTrackCount - 1) additional audio ${tracksPlural}, would you like to merge ${itemPlural}? [Y|N]"
+    $result = $(Print -noNewLine "Found $($audioTrackCount - 1) additional audio ${tracksPlural}, would you like to merge ${itemPlural}? [Y|N] "; Read-Host)
     $result = $result.ToLower()
 
     if ($result -eq "y")
@@ -668,7 +762,7 @@ if ($Prompt)
     $Scale     = PromptDestinationScale
     $FPS       = PromptDestinationFPS
 
-    Write-Host
+    Print
 }
 
 if ($Prompt -or $Shell)
@@ -680,14 +774,14 @@ if ($Prompt -or $Shell)
 # Throw if the destination size is less than or equal to zero.
 if ($Size -le 0)
 {
-    Write-Host "Invalid destination size: $Size $SizeUnits"
+    Print "Invalid destination size: $Size $SizeUnits" Red
     Leave -1
 }
 
 # Throw if the destination scale is less than or equal to zero.
 if ($Scale -le 0)
 {
-    Write-Host "Invalid destination scale: $Scale"
+    Print "Invalid destination scale: $Scale" Red
     Leave -1
 }
 
@@ -718,14 +812,14 @@ $duration = GetSourceDuration
 # Throw if the destination size is greater than the source size.
 if ($dstSizeBytes -gt $srcSizeBytes)
 {
-    Write-Host "The destination size cannot be larger than the source size."
+    Print "The destination size cannot be larger than the source size." Red
     Leave -1
 }
 
 # Throw if the video duration is less than or equal to zero.
 if ($duration -le 0)
 {
-    Write-Host "Invalid video duration: $duration"
+    Print "Invalid video duration: $duration" Red
     Leave -1
 }
 
@@ -733,14 +827,14 @@ function PrintInfo([string]$section, [string]$path, [uint64]$sizeBytes, [float]$
 {
     [uint32]$width, [uint32]$height = (GetSourceResolutionScaled) -split ','
 
-    Write-Host -NoNewLine $section
-    Write-Host ('-' * (64 - $section.Length))
-    Write-Host
-    Write-Host "> Path   ----  $path"
-    Write-Host "> Size   ----  $(($sizeBytes / 1024).ToString("N0")) KiB ($($sizeBytes.ToString("N0")) bytes)"
-    Write-Host "> Scale  ----  $scale (${width}x${height})"
-    Write-Host "> FPS    ----  $fps FPS"
-    Write-Host
+    Print $section -noNewLine
+    Print ('-' * (64 - $section.Length))
+    Print
+    Print "> Path   ----  $path"
+    Print "> Size   ----  $(($sizeBytes / 1024).ToString("N0")) KiB ($($sizeBytes.ToString("N0")) bytes)"
+    Print "> Scale  ----  $scale (${width}x${height})"
+    Print "> FPS    ----  $fps FPS"
+    Print
 }
 
 PrintInfo "Source         " $Source $srcSizeBytes 1.0 $srcFPS
@@ -748,8 +842,8 @@ PrintInfo "Destination    " $Destination $dstSizeBytes $Scale $FPS
 
 $startTime = Get-Date
 
-Write-Host "Starting transcode at ${startTime}. Enter CTRL+C to cancel."
-Write-Host
+Print "Starting transcode at ${startTime}. Enter CTRL+C to cancel."
+Print
 
 $tolerance = 10
 $toleranceThreshold = 1 + ($tolerance / 100)
@@ -791,7 +885,7 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     # Break if transcoding with the same parameters.
     if ([Math]::Round($dstVideoBitrate / 1024) -eq $lastVideoBitrate)
     {
-        Write-Host "$passPrefix Cannot compress video further, aborting..." -ForegroundColor Red
+        Print "$passPrefix Cannot compress video further, aborting..." Red
         break
     }
 
@@ -801,20 +895,20 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     # 0 audio bitrate means there is no audio stream.
     if ($dstVideoBitrate -le 1024 -or ($dstAudioBitrate -ne 0 -and $dstAudioBitrate -le 1024))
     {
-        Write-Host "$passPrefix Attempted to transcode below 1 Kbps, aborting..." -ForegroundColor Red
+        Print "$passPrefix Attempted to transcode below 1 Kbps, aborting..." Red
         break
     }
 
     $dstVideoBitrateF = "$(($dstVideoBitrate / 1024).ToString("N0")) Kbps"
     $dstAudioBitrateF = "$(($dstAudioBitrate / 1024).ToString("N0")) Kbps"
 
-    Write-Host -NoNewLine "$passPrefix Video: ${dstVideoBitrateF}. Audio: ${dstAudioBitrateF}.`n${passPrefixBlank} "
+    Print "$passPrefix Video: ${dstVideoBitrateF}. Audio: ${dstAudioBitrateF}.`n${passPrefixBlank} " -noNewLine
 
-    Transcode $dstVideoBitrate $dstAudioBitrate
+    Transcode $dstVideoBitrate $dstAudioBitrate $pass
 
     if (!(Test-Path -LiteralPath $Destination))
     {
-        Write-Host "$passPrefixBlank Failed to encode video." -ForegroundColor Red
+        Print "$passPrefixBlank Failed to encode video." Red
         Leave -1
         break
     }
@@ -823,7 +917,7 @@ while ($factor -gt $toleranceThreshold -or $factor -lt 1)
     $percent = (100 / $dstSizeBytes) * $newSizeBytes
     $factor = (100 / $percent)
     
-    Write-Host "$passPrefixBlank Compressed to $(($newSizeBytes / 1024).ToString("N0")) KiB ($($newSizeBytes.ToString("N0")) bytes)." -ForegroundColor DarkGreen
+    Print "$passPrefixBlank Compressed to $(($newSizeBytes / 1024).ToString("N0")) KiB ($($newSizeBytes.ToString("N0")) bytes)." DarkGreen
 }
 
 $passPlural = "passes"
@@ -836,9 +930,8 @@ if ($pass -eq 1)
 
 $endTime = Get-Date
 
-Write-Host ""
-Write-Host "Finished at $endTime in $(($endTime - $startTime).TotalSeconds) seconds after $pass ${passPlural}."
-
+Print ""
+Print "Finished at $endTime in $(($endTime - $startTime).TotalSeconds) seconds after $pass ${passPlural}."
 Leave
 
 # 8mb PowerShell

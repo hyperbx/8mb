@@ -3,11 +3,11 @@
 
 # Prerequisites
 - PowerShell
-- [ffmpeg](https://ffbinaries.com/downloads)
-- [ffprobe](https://ffbinaries.com/downloads)
+- [FFmpeg](https://ffbinaries.com/downloads)
+- [FFprobe](https://ffbinaries.com/downloads)
 
 # Usage
-Download the Windows binaries for both ffmpeg and ffprobe from the [Prerequisites](#prerequisites) section and extract them into the script directory.
+Download the Windows binaries for both FFmpeg and FFprobe from the [Prerequisites](#prerequisites) section and extract them into the script directory.
 
 If either binaries are in PATH, they will be searched for there first.
 
@@ -24,13 +24,15 @@ If the location of `8mb.ps1` changes, running `Register.bat` again will update t
 
 ## Command Line
 ```ps
-PS > .\8mb.ps1 -Source      [string]                   # the source file path.
-               -Size        [uint64]                   # the destination file size.
-               -SizeUnits   [KB|KiB|MB|MiB] (optional) # the destination file size units (MB is default).
-               -Scale       [float]         (optional) # the destination resolution scale.
-               -FPS         [float]         (optional) # the destination FPS.
-               -Destination [string]        (optional) # the destination file path.
-               -NoUpdates   [switch]        (optional) # disables the update checker (can also now be disabled in 8mb.ini).
+PS > .\8mb.ps1 -Source            [string]                               # the source file path.
+               -Size              [uint64]                               # the destination file size.
+               -SizeUnits         [KB|KiB|MB|MiB]             (optional) # the destination file size units (MB is default).
+               -Scale             [float]                     (optional) # the destination resolution scale.
+               -FPS               [float]                     (optional) # the destination FPS.
+               -Destination       [string]                    (optional) # the destination file path.
+               -NoUpdates         [switch]                    (optional) # disables the update checker (can also now be disabled in 8mb.ini).
+               -NoAudioTrackMerge [switch]                    (optional) # declines merging audio tracks.
+               -Verbosity         [All|Normal|Progress|Quiet] (optional) # All - Display FFmpeg output; Normal - Display only 8mb output; Progress - Display only progress percentage; Quiet - Disable output.
 ```
 
 # Example
@@ -38,25 +40,25 @@ PS > .\8mb.ps1 -Source      [string]                   # the source file path.
 PS > .\8mb.ps1 a.mp4 8 MB 0.5 24
 8mb PowerShell
 
-Source ===================================
+Source         -------------------------------------------------
 
-Path -- : a.mp4
-Size -- : 205,834 KiB (210,774,113 bytes)
-Scale - : 1 (2560x1072)
-FPS --- : 60 FPS
+> Path   ----  a.mp4
+> Size   ----  205,834 KiB (210,774,113 bytes)
+> Scale  ----  1 (2560x1072)
+> FPS    ----  60 FPS
 
-Destination ==============================
+Destination    -------------------------------------------------
 
-Path -- : a.8mb.mp4
-Size -- : 7,813 KiB (8,000,000 bytes)
-Scale - : 0.5 (1280x536)
-FPS --- : 24 FPS
+> Path   ----  a.8mb.mp4
+> Size   ----  7,813 KiB (8,000,000 bytes)
+> Scale  ----  0.5 (1280x536)
+> FPS    ----  24 FPS
 
-Starting transcode at 09/10/2025 18:34:11. Enter CTRL+C to cancel.
+Starting transcode at 10/03/2026 18:34:11. Enter CTRL+C to cancel.
 
 Pass 1: Video: 881 Kbps. Audio: 151 Kbps.
-        Transcoding with libx264...
+        Transcoding with libx264... 100.0%
         Compressed to 7,754 KiB (7,940,569 bytes).
 
-Finished at 09/10/2025 18:34:23 in 11.9665874 seconds after 1 pass.
+Finished at 10/03/2026 18:34:23 in 11.9665874 seconds after 1 pass.
 ```
