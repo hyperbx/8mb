@@ -592,7 +592,7 @@ function Transcode([uint64]$videoBitrate, [uint64]$audioBitrate, [int]$passCount
         $audioDecoderParams = @("-filter_complex", $audioMergeFilter, "-map", "[aout]")
     }
 
-    $progressTotal = GetSourceFrameCount
+    $duration = GetSourceDuration
     $progressIteration = 0
     $progressStr = ""
 
@@ -612,10 +612,14 @@ function Transcode([uint64]$videoBitrate, [uint64]$audioBitrate, [int]$passCount
               |                                                       `
     ForEach-Object                                                    `
     {
-        if ($_ -match "frame=(\d+)")
+        if ($_ -match "out_time=(\d+):(\d+):(\d+\.\d+)")
         {
-            $frame = [int]$matches[1]
-            $progress = ($frame / $progressTotal)
+            $hours = [int]$matches[1]
+            $minutes = [int]$matches[2]
+            $seconds = [double]$matches[3]
+            $totalSeconds = ($hours * 3600) + ($minutes * 60) + $seconds
+            
+            $progress = $totalSeconds / $duration
 
             if ($Verbosity -eq "Progress")
             {
