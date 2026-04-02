@@ -155,21 +155,27 @@ $isAudioTrackMerge = !$NoAudioTrackMerge
 
 $isQuiet = $Verbosity -eq "Quiet" -or $Verbosity -eq "Progress"
 
-function Print([string]$text = "", [string]$fgColour = "White", [string]$bgColour = "Black", [switch]$noNewLine = $false)
+function Print([string]$text = "", [string]$fgColour = "", [string]$bgColour = "", [switch]$noNewLine = $false)
 {
     if ($isQuiet)
     {
         return
     }
 
-    if ($noNewLine)
+    $params = @{ Object = $text }
+    $params.NoNewLine = $noNewLine
+
+    if ($fgColour)
     {
-        Write-Host -NoNewLine $text -BackgroundColor $bgColour -ForegroundColor $fgColour
+        $params.ForegroundColor = $fgColour
     }
-    else
+
+    if ($bgColour)
     {
-        Write-Host $text -BackgroundColor $bgColour -ForegroundColor $fgColour
+        $params.BackgroundColor = $bgColour
     }
+
+    Write-Host @params
 }
 
 function Refresh()
