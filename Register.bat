@@ -28,6 +28,9 @@ reg add "%shellKey%\a_8MB\command" /ve /d "powershell -ExecutionPolicy Bypass -F
 reg add "%shellKey%\b_10MB" /ve /d "10 MB" /f
 reg add "%shellKey%\b_10MB\command" /ve /d "powershell -ExecutionPolicy Bypass -File \"%scriptPath%\" \"%%1\" 10 MB 0.5 30 -Shell" /f
 
+reg add "%shellKey%\c_20MB" /ve /d "20 MB" /f
+reg add "%shellKey%\c_20MB\command" /ve /d "powershell -ExecutionPolicy Bypass -File \"%scriptPath%\" \"%%1\" 20 MB 0.675 30 -Shell" /f
+
 reg add "%shellKey%\c_25MB" /ve /d "25 MB" /f
 reg add "%shellKey%\c_25MB\command" /ve /d "powershell -ExecutionPolicy Bypass -File \"%scriptPath%\" \"%%1\" 25 MB 0.75 30 -Shell" /f
 
